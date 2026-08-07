@@ -1,0 +1,254 @@
+# Skill normalization rules — loaded by obsidian_sync_core.normalize_skill()
+#
+# Rules are evaluated in order; first match wins (same semantics as the
+# original if-else chain in sync_to_obsidian.py).
+#
+# Each rule may specify any combination of:
+#   exact:            list of strings that must equal lower(s) exactly
+#   prefix:           list of strings that lower(s) must start with
+#   contains:         list of strings that lower(s) must contain
+#   exclude_contains: list of strings that must NOT be contained in lower(s)
+#   canonical:        the canonical skill name to return on match
+#
+# If no rule matches, the fallback is title-case for all-lowercase input,
+# otherwise the cleaned-up original string.
+
+rules:
+  # --- Cloud platforms ---
+  - canonical: "GCP"
+    exact: ["gcp", "google cloud", "google cloud platform"]
+  - canonical: "AWS"
+    exact: ["aws", "amazon web services"]
+  - canonical: "Azure"
+    exact: ["azure", "microsoft azure"]
+
+  # --- Databases / SQL ---
+  - canonical: "SQL"
+    prefix: ["sql"]
+  - canonical: "PostgreSQL"
+    prefix: ["postgresql", "postgres"]
+  - canonical: "MongoDB"
+    prefix: ["mongodb"]
+  - canonical: "MySQL"
+    prefix: ["mysql"]
+  - canonical: "Oracle"
+    prefix: ["oracle"]
+  - canonical: "Redis"
+    prefix: ["redis"]
+
+  # --- Data warehouses / lakes ---
+  - canonical: "Snowflake"
+    prefix: ["snowflake"]
+  - canonical: "BigQuery"
+    prefix: ["bigquery", "google bigquery"]
+  - canonical: "Databricks"
+    prefix: ["databricks"]
+  - canonical: "Delta Lake"
+    prefix: ["delta lake"]
+
+  # --- BI / visualization ---
+  - canonical: "Power BI"
+    prefix: ["power bi"]
+  # Looker must be checked before Looker Studio; exclude "studio" variants
+  - canonical: "Looker"
+    prefix: ["looker"]
+    exclude_contains: ["studio"]
+  - canonical: "Looker Studio"
+    prefix: ["looker studio"]
+  - canonical: "Tableau"
+    prefix: ["tableau"]
+  - canonical: "Apache Superset"
+    prefix: ["apache superset"]
+    exact: ["superset"]
+  - canonical: "Amplitude"
+    prefix: ["amplitude"]
+  - canonical: "DAX"
+    prefix: ["dax"]
+
+  # --- Orchestration / pipeline tools ---
+  - canonical: "Apache Airflow"
+    prefix: ["apache airflow"]
+    exact: ["airflow"]
+  - canonical: "Apache Kafka"
+    prefix: ["apache kafka"]
+    exact: ["kafka"]
+  - canonical: "Dagster"
+    prefix: ["dagster"]
+  - canonical: "Airbyte"
+    prefix: ["airbyte"]
+  - canonical: "dbt"
+    exact: ["dbt", "dbt core", "dbt cloud", "dbt (core or cloud)", "dbt (core & cloud)"]
+    prefix: ["dbt"]
+  - canonical: "ELT/ETL"
+    prefix: ["elt", "etl"]
+
+  # --- Processing / compute ---
+  - canonical: "Apache Spark"
+    prefix: ["apache spark"]
+    exact: ["spark"]
+  - canonical: "PySpark"
+    prefix: ["pyspark"]
+
+  # --- Infrastructure / DevOps ---
+  - canonical: "Docker"
+    exact: ["docker"]
+    contains: ["containerization"]
+  - canonical: "Kubernetes"
+    prefix: ["kubernetes"]
+    exact: ["kubernetes"]
+  - canonical: "Terraform"
+    prefix: ["terraform"]
+    exact: ["terraform"]
+  - canonical: "CI/CD"
+    exact: ["ci/cd", "ci / cd", "continuous integration"]
+  - canonical: "GitHub Actions"
+    prefix: ["github actions"]
+  - canonical: "Git"
+    exact: ["git"]
+    prefix: ["git "]
+  - canonical: "Linux"
+    prefix: ["linux"]
+    exact: ["linux"]
+  - canonical: "Infrastructure as Code"
+    prefix: ["iac", "infrastructure as code"]
+  - canonical: "Microservices"
+    prefix: ["microservices"]
+  - canonical: "Event-Driven Architecture"
+    prefix: ["event-driven"]
+  - canonical: "Monitoring"
+    prefix: ["monitoring"]
+  - canonical: "Observability"
+    prefix: ["observability"]
+  - canonical: "RBAC"
+    prefix: ["rbac"]
+
+  # --- Languages / frameworks ---
+  - canonical: "Python"
+    prefix: ["python"]
+  - canonical: "FastAPI"
+    prefix: ["fastapi"]
+  - canonical: "Flask"
+    prefix: ["flask"]
+  - canonical: "Jinja"
+    prefix: ["jinja"]
+  - canonical: "Pytest"
+    prefix: ["pytest"]
+  - canonical: "REST APIs"
+    prefix: ["rest api"]
+    exact: ["apis", "api"]
+  - canonical: "Elasticsearch"
+    prefix: ["elasticsearch"]
+  - canonical: "SAP"
+    prefix: ["sap"]
+
+  # --- AI / ML / LLM ---
+  - canonical: "LangChain"
+    prefix: ["langchain"]
+  - canonical: "LangGraph"
+    prefix: ["langgraph"]
+  - canonical: "RAG"
+    exact: ["rag", "rag frameworks"]
+  - canonical: "Ollama"
+    prefix: ["ollama"]
+  - canonical: "FAISS"
+    prefix: ["faiss"]
+  - canonical: "LLMs"
+    prefix: ["llm"]
+    exact: ["llms"]
+  - canonical: "OpenAI API"
+    prefix: ["openai"]
+  - canonical: "HuggingFace"
+    prefix: ["huggingface", "hugging face"]
+  - canonical: "Prompt Engineering"
+    prefix: ["prompt engineering"]
+  - canonical: "Generative AI"
+    prefix: ["generative ai"]
+    exact: ["genai"]
+  - canonical: "Agentic AI"
+    prefix: ["agentic ai", "ai agents"]
+  - canonical: "Machine Learning"
+    prefix: ["machine learning"]
+    exact: ["ml"]
+  - canonical: "Deep Learning"
+    prefix: ["deep learning"]
+  - canonical: "NLP"
+    prefix: ["nlp", "natural language"]
+  - canonical: "Computer Vision"
+    prefix: ["computer vision"]
+  - canonical: "TensorFlow"
+    prefix: ["tensorflow"]
+  - canonical: "PyTorch"
+    prefix: ["pytorch"]
+  - canonical: "scikit-learn"
+    prefix: ["scikit-learn", "sklearn"]
+  - canonical: "Pandas"
+    prefix: ["pandas"]
+  - canonical: "NumPy"
+    prefix: ["numpy"]
+  - canonical: "Streamlit"
+    prefix: ["streamlit"]
+
+  # --- Data modeling / architecture ---
+  - canonical: "Dimensional Modeling"
+    prefix: ["dimensional mod"]
+  - canonical: "Data Vault"
+    prefix: ["data vault"]
+  - canonical: "SCD Type 2"
+    prefix: ["scd type 2"]
+    exact: ["scd type 2"]
+  - canonical: "Incremental Modeling"
+    prefix: ["incremental mod"]
+  - canonical: "Medallion Architecture"
+    prefix: ["medallion arch"]
+  - canonical: "Data Modeling"
+    prefix: ["data modeling"]
+  - canonical: "Schema Design"
+    prefix: ["schema design"]
+  - canonical: "Semantic Layer"
+    prefix: ["semantic layer"]
+  - canonical: "Semantic Models"
+    prefix: ["semantic model"]
+  - canonical: "KPI Definitions"
+    prefix: ["kpi"]
+  - canonical: "Data Products"
+    prefix: ["data products"]
+  - canonical: "Data Catalogue"
+    prefix: ["data catalogue", "data catalog", "model catalog"]
+
+  # --- Data governance / quality ---
+  - canonical: "Data Governance"
+    prefix: ["data governance"]
+  - canonical: "Data Lineage"
+    prefix: ["data lineage"]
+  - canonical: "Data Quality"
+    prefix: ["data quality"]
+  - canonical: "Unit Testing"
+    prefix: ["unit testing"]
+  - canonical: "Integration Testing"
+    prefix: ["integration testing"]
+  - canonical: "Soda Core"
+    prefix: ["soda core"]
+    exact: ["soda"]
+
+  # --- Performance / processing ---
+  - canonical: "Performance Optimization"
+    prefix: ["performance optimization", "performance optimisation"]
+  - canonical: "Real-Time Processing"
+    prefix: ["real-time", "real time"]
+
+  # --- Business / analytics domains ---
+  - canonical: "Marketing Attribution"
+    prefix: ["marketing attribution"]
+  - canonical: "Product Analytics"
+    prefix: ["product usage", "product analytics"]
+  - canonical: "Customer Care Data"
+    prefix: ["customer care"]
+  - canonical: "Subscription Data"
+    prefix: ["subscription data"]
+  - canonical: "HubSpot"
+    prefix: ["hubspot"]
+  - canonical: "Salesforce"
+    prefix: ["salesforce"]
+  - canonical: "Microsoft Excel"
+    prefix: ["microsoft excel"]
+    exact: ["excel"]

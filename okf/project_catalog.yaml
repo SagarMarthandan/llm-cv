@@ -1,0 +1,295 @@
+projects:
+  - title: "Chicago Crime & Divvy Bike-Share Data Engineering Pipeline"
+    description: "End-to-end data pipeline (Spark, Kafka, Airflow, BigQuery, dbt, Terraform) correlating Chicago crime patterns with bike-share ridership, developed with parallel AI agents."
+    technologies: "Python, Apache Spark, Apache Airflow, Apache Kafka, dbt, Google BigQuery, BigQuery ML, Terraform, GitHub Actions, Grafana, PostgreSQL, Docker, dlt, SQL"
+    archetypes:
+      - Data Engineering
+      - Analytics Engineering
+      - Backend/Platform Engineering
+      - AI Engineer
+    repo_url: "https://github.com/SagarMarthandan/chicago-data-pipeline"
+    bullets:
+      - "End-to-end data pipeline correlating Chicago crime patterns with bike-share ridership — processes 8.6M crime events and 50M+ Divvy trips across batch and streaming paths"
+      - "Batch ETL path: Apache Spark (PySpark) cleans and transforms crime data from Parquet through GCS into BigQuery; dlt streams 75 monthly CSV ZIPs (~50M rows) from S3 into BigQuery with incremental append"
+      - "Real-time streaming path: Kafka producer polls GBFS API every 60s into a 3-partition topic; Spark Structured Streaming consumes with exactly-once semantics via checkpointing into PostgreSQL"
+      - "dbt transformation layer with 84 tests: staging models for type casting and deduplication, dimension models (date, community_area, crime_type, stations), and fact models including 1.46M station-day aggregates with geospatial ST_DISTANCE joins (≤402m quarter-mile radius)"
+      - "BigQuery ML linear regression predicting ridership from crime count and temporal features — crime coefficient +1.45, in-sample R² = 0.434, overall Pearson r = +0.20 across 1.46M station-days"
+      - "Infrastructure as code with Terraform provisioning GCS buckets and BigQuery datasets; partition pruning saves 97.8% bytes on filtered queries, with clustering on community_area and station_id"
+      - "12-service Docker Compose stack (Postgres, Spark, Airflow, Kafka, Grafana); Airflow 3.0 orchestration with SqlSensor gating, 3 retries, 30-min timeouts, and structured JSON failure callbacks"
+      - "3-workflow GitHub Actions CI/CD pipeline: PR checks (ruff, dbt parse, compose validate), dev image builds to GHCR, and prod semantic-version releases with branch protection on both dev and prod"
+      - "Grafana observability: 11-panel pipeline health dashboard (row counts, trip rate, freshness, DAG status) and 8-panel crime/Divvy analysis dashboard (heatmaps, trip charts, correlation scatter, Pearson r gauge)"
+      - "Built entirely through multi-agent AI workflow — AI agent as primary engineer (code generation, Docker/Terraform/dbt authoring), subagents for parallel workstreams (CI/CD, docs, dashboard migration), human providing architectural decisions and phase gates"
+    keywords: [python, sql, apache spark, apache airflow, apache kafka, dbt, bigquery, bigquery ml, terraform, github actions, grafana, postgresql, docker, dlt, etl, elt, data warehousing, data pipeline, data modeling, orchestration, streaming, batch processing, cloud data warehouse, data architecture, machine learning, ci/cd, data quality, analytics, ai agents]
+
+  - title: "NYC Taxi Analytics Pipeline (2025)"
+    description: "End-to-end GCP data pipeline ingesting NYC Taxi records with Terraform, Airbyte, Airflow, BigQuery, and dbt with CI/CD and data quality checks."
+    technologies: "Airbyte, Airflow, BigQuery, Docker, Terraform, Python, GitHub Actions, dbt"
+    archetypes:
+      - Data Engineering
+      - Analytics Engineering
+      - Backend/Platform Engineering
+    repo_url: "https://github.com/SagarMarthandan/NYC-Bigquery"
+    bullets:
+      - "End-to-end GCP data pipeline ingesting monthly NYC Taxi trip records (2025) with Terraform-provisioned infrastructure, Airbyte replication, Airflow orchestration, and dbt transformations into BigQuery"
+      - "Infrastructure as code: Terraform deploys GCS landing zones and BigQuery datasets (raw_nyc_taxi, mart_nyc_taxi) with access control rules; Makefile shortcuts for tf-init/plan/apply and dbt operations"
+      - "Airbyte replication connector ingests CSV source data into GCS, auto-loaded into BigQuery raw dataset; Airflow DAG schedules monthly runs with backfill support and triggers downstream dbt transformations"
+      - "dbt star schema modeling: staging layer (type casting, anomaly filtering for dates outside 2025 and negative fares), core layer (dim_location, dim_payment_type, dim_vendor, fact_trips with surrogate keys), and 4 analytics marts"
+      - "Analytics marts: mart_monthly_trip_summary (ride counts, revenue sums, averages), mart_route_performance (pickup/dropoff zone flows), mart_payment_type_breakdown (revenue share via window functions), mart_hourly_demand (surge patterns by hour and weekday)"
+      - "Data quality: schema tests (not_null, unique, accepted_values on hour_of_day 0-23 and day_of_week) plus custom singular test assert_trip_fare_is_positive rejecting negative fares before production merge"
+      - "CI/CD via GitHub Actions: SQLFluff linting and dbt test runs on every PR; containerized Airflow cluster with PostgreSQL metadata backend via Docker Compose"
+      - "Modular project structure with Jinja macros (get_payment_type_description for payment code decoding), seed files (taxi_zone_lookup mapping Location IDs to boroughs), and comprehensive schema.yml documentation across all layers"
+    keywords: [python, sql, airbyte, airflow, bigquery, dbt, terraform, docker, github actions, etl, elt, data pipeline, data warehousing, data modeling, orchestration, data quality, ci/cd, infrastructure as code, containerization, analytics, cloud data warehouse, data engineering, star schema]
+
+  - title: "YouTube E2E: Advanced Data Engineering Pipeline"
+    description: "Containerized ELT pipeline extracting YouTube channel analytics via Data API v3, processing through warehouse layers with Soda data quality gates."
+    technologies: "Airflow, Docker, PostgreSQL, dbt, GitHub Actions, DBeaver, Soda, Redis, Python"
+    archetypes:
+      - Data Engineering
+      - Analytics Engineering
+    repo_url: "https://github.com/SagarMarthandan/Youtube_E2E_DE"
+    bullets:
+      - "Containerized ELT pipeline extracting YouTube channel analytics via Data API v3, processing through staging and core warehouse layers with automated Soda data quality gates"
+      - "3-DAG Airflow orchestration: produce_json DAG (playlist discovery, paginated video ID retrieval, batch-50 API queries for quota efficiency, timestamped JSON persistence), update_db DAG (staging upsert, core transform), data_quality DAG (Soda validation)"
+      - "Smart staging synchronization: full upsert logic with drift management — automatically identifies and deletes records no longer present in source (deleted/private videos); schema enforcement before every run"
+      - "Core warehouse transformations: ISO 8601 duration string parsing (PT1H2M10S → PostgreSQL TIME), video classification (Shorts ≤60s vs Normal >60s), history-preserving mirror optimized for BI tools"
+      - "Soda Core data quality layer: integrity checks (non-null, non-duplicate Video_ID), business logic validation (Likes_Count and Comments_Count cannot exceed Video_Views), independent scans on both staging and core schemas"
+      - "GitHub Actions CI/CD: automated Docker image builds pushed to DockerHub on dependency changes; unit, integration, and E2E DAG test suite triggered on every push with GitHub Secrets for credential injection"
+      - "Redis message broker for Airflow task queue resilience; Fernet encryption for Airflow credentials; DBeaver GUI for external query access to staging and core schemas"
+      - "Docker Compose orchestration with isolated runtime environments; bind-mount dbt project at runtime to allow SQL model updates without Docker image rebuilds"
+    keywords: [python, sql, airflow, docker, postgresql, dbt, github actions, soda, redis, etl, elt, data pipeline, data warehousing, data modeling, orchestration, data quality, containerization, ci/cd, analytics, data engineering]
+
+  - title: "F1 Ingestion - Formula 1 ELT Platform"
+    description: "End-to-end F1 data ingestion and transformation platform on Azure using Data Factory, Databricks, and Delta Lake with Medallion Architecture."
+    technologies: "Azure Data Factory, Databricks, Spark, Delta Lake, ADLS Gen2, Azure Key Vault, PySpark, Airflow"
+    archetypes:
+      - Data Engineering
+    repo_url: "https://github.com/SagarMarthandan/F1-AzureDatabricks"
+    bullets:
+      - "End-to-end Formula 1 data ingestion and transformation platform on Azure — ingests Ergast F1 datasets (CSV/JSON) through Medallion Architecture (Bronze → Silver → Gold) using ADF, Databricks, and Delta Lake"
+      - "Azure Data Factory orchestration: triggers Databricks notebooks with PAT/service principal credentials stored in Key Vault; parametric runs with file paths and target table names; ADF pipeline JSONs and run traces archived in snaps/"
+      - "Bronze → Silver ingestion: structured schema application, type casting, null handling, partitioning; 8 entity notebooks (circuits, constructors, drivers, races, results, pit_stops, lap_times, qualifying) writing partitioned Delta tables"
+      - "Silver → Gold transformations: Spark SQL joins across multiple silver tables to create denormalized presentation tables — race_results (races × drivers × results), driver_standings (championship points via window functions)"
+      - "Delta Lake adoption for ACID transactions enabling safe upserts and incremental merges; migrated from Hive metastore to Delta for reliable idempotent loading"
+      - "Centralized reusable helpers in common_functions.ipynb (metadata column injection, incremental merge logic, status tracking) shared across ingestion notebooks to reduce code duplication"
+      - "Azure resource provisioning: Resource Group, ADLS Gen2 (raw/processed/presentation containers), Key Vault, Databricks Workspace, Data Factory — with cost management monitoring"
+      - "Multiple authentication patterns explored (access key, SAS token, service principal, cluster scope); production uses service principal + Key Vault for automated pipeline security"
+    keywords: [python, sql, azure data factory, databricks, spark, pyspark, delta lake, adls gen2, azure key vault, airflow, etl, elt, data pipeline, data ingestion, data transformation, medallion architecture, cloud data warehouse, orchestration, data engineering, data quality]
+
+  - title: "Airbnb Data Engineering Project (dbt + Snowflake + Dagster)"
+    description: "End-to-end dbt pipeline transforming raw Airbnb data into analytics-ready marts on Snowflake, orchestrated by Dagster with SCD Type 2 snapshots and incremental loading."
+    technologies: "dbt, Snowflake, Dagster, Python, SQL"
+    archetypes:
+      - Data Engineering
+      - Analytics Engineering
+    repo_url: "https://github.com/SagarMarthandan/DBT-Airbnb-Practice-Project"
+    bullets:
+      - "End-to-end dbt pipeline transforming raw Airbnb data into analytics-ready marts on Snowflake, orchestrated by Dagster with asset-based scheduling and SCD Type 2 snapshots"
+      - "SCD Type 2 snapshots tracking history of hosts (name, superhost status changes) and listings (price, room type, minimum stay updates) using timestamp strategy with automatic invalidation and dbt_valid_from/dbt_valid_to columns"
+      - "Ephemeral staging layer (src_listings, src_hosts, src_reviews) for column renaming and field selection without creating unnecessary database objects"
+      - "Core dimension models: dim_listings_cleansed (strips currency symbols, casts to NUMBER(10,2), defaults minimum_nights=0→1), dim_hosts_cleansed (NVL for missing names, Model Contracts enforcing schema integrity), dim_listings_w_hosts (LEFT JOIN with GREATEST() updated_at audit)"
+      - "Incremental fact table fct_reviews: only processes new reviews since last run to reduce Snowflake compute costs; dbt_utils.generate_surrogate_key for unique hashing; idempotent date-range reload via dbt variables"
+      - "Business mart mart_fullmoon_reviews: joins fct_reviews with seed_full_moon_dates to test the 'Transylvania Effect' — whether review sentiment correlates with full moons"
+      - "Data quality with dbt_expectations: row count matching, regex validation on price patterns, quantile checks for outlier detection; custom positive_values test for data sanity; Model Contracts with schema-level nullability enforcement"
+      - "Custom macros (no_empty_strings, select_positive_values, logging) for DRY code; audit logging via dbt hooks (on-run-start creates audit_log table, post-hook logs every model run with timestamp for performance tracking)"
+    keywords: [python, sql, dbt, snowflake, dagster, etl, elt, data modeling, data warehouse, data transformation, data quality, data engineering, orchestration, incremental loading, scd type 2, data marts, cloud data warehouse, analytics]
+
+  - title: "BTC - Bitcoin - dbt Project Documentation"
+    description: "dbt pipeline processing Bitcoin transaction data in Snowflake, flattening nested structures and building whale-detection analytical models with versioned schemas."
+    technologies: "dbt, Snowflake, Snowpipe, AWS SQS, AWS S3, Python, SQL, Git, Looker Studio"
+    archetypes:
+      - Analytics Engineering
+      - Data Engineering
+    repo_url: "https://github.com/SagarMarthandan/BTC"
+    bullets:
+      - "dbt pipeline processing Bitcoin transaction data in Snowflake — handles nested blockchain structures, builds whale-detection analytical models, and exposes versioned schemas for downstream BI"
+      - "Snowflake LATERAL FLATTEN on nested transaction outputs to create one row per address/value pair; Python dbt model (stg_btc_outputs_py.py) provides alternative DataFrame-based flattening for idempotent transformation"
+      - "Whale detection marts: filters transactions with output value >10 BTC, aggregates by output_address for total sent and transaction counts; whale_top_10 ranks highest-volume addresses on the network"
+      - "Custom convert_to_usd macro joins with btc_usd_max seed table for real-time USD valuation of BTC transaction volumes; post-hook create_latest_version_view auto-creates views pointing to latest model versions"
+      - "Model versioning (whale_alerts v1 vs v2) in schema.yml — introduces breaking changes safely without disrupting downstream consumers; exposures document Looker Studio dashboard dependencies"
+      - "Incremental loading with merge strategy on stg_btc using HASH_KEY and BLOCK_TIMESTAMP; ephemeral stg_btc_transactions filters out Coinbase transactions to focus on peer-to-peer transfers"
+      - "Snowpipe auto-ingestion with AWS SQS notifications from S3 — new blockchain data automatically loaded into Snowflake without manual intervention"
+      - "GitHub Actions CI/CD: dbt debug → dbt run → dbt test pipeline on every PR; store_failures=true saves failing records to audit schema for inspection; on-run-end hook logs run metadata to centralized Snowflake table"
+      - "Looker Studio dashboard for whale alert visualization; Git for version control with separate profiles.yml for local and production credential management"
+    keywords: [python, sql, dbt, snowflake, snowpipe, aws sqs, aws s3, git, looker studio, etl, elt, data modeling, data warehouse, data transformation, data engineering, data quality, data visualization, incremental loading, data marts, blockchain analytics]
+
+  - title: "Ergast Formula 1 Data Engineering Mini Project: Databricks Medallion Architecture"
+    description: "Databricks Medallion Architecture pipeline ingesting Ergast F1 data through Bronze, Silver, and Gold layers with Unity Catalog governance."
+    technologies: "Databricks, PySpark, SQL, Delta Lake, ADLS Gen2, Unity Catalog"
+    archetypes:
+      - Data Engineering
+    repo_url: "https://github.com/SagarMarthandan/Databricks-Mini-Project"
+    bullets:
+      - "Databricks Medallion Architecture pipeline ingesting Ergast F1 data through Bronze, Silver, and Gold layers with Unity Catalog governance and ADLS Gen2 cloud storage"
+      - "Bronze layer: raw JSON files from ADLS Gen2 mapped to Delta tables via External Locations in Databricks — minimal transformation, serving as landing zone with full source fidelity"
+      - "Silver layer: cleansed and conformed data — CamelCase to snake_case column renaming (driverId → driver_id), name field concatenation (forename + surname = name), audit column injection (ingestion_date via current_timestamp())"
+      - "Gold layer: business-level aggregations — driver_wins table joins drivers and results, filters for 1st place finishes, counts wins per driver; consumption-ready for BI tools and dashboards"
+      - "Unity Catalog governance: dedicated formula1_dev catalog isolating development workloads; three schemas (bronze, silver, gold) for logical data layer separation; system.information_schema for table metadata, owner details, and storage location tracking"
+      - "Databricks Workflows for automated notebook execution with sequential dependency structure (create External Location → create catalog/schemas → create Bronze → Silver → Gold tables); scheduled triggers with Job Timeline monitoring"
+      - "Delta Lake for ACID transactions and time travel; managed locations for Silver and Gold layers letting Databricks handle underlying storage lifecycle"
+      - "PySpark for distributed data processing across all layers; SQL for analytical queries on Gold presentation tables"
+    keywords: [python, sql, databricks, pyspark, delta lake, adls gen2, unity catalog, etl, data pipeline, data engineering, data transformation, medallion architecture, data governance, data lakehouse, data quality, analytics]
+
+  - title: "Weather Data Analytics Pipeline"
+    description: "End-to-end ELT pipeline ingesting real-time weather data from Weatherstack API, transforming with dbt, and visualizing via Apache Superset."
+    technologies: "Airflow, Docker, PostgreSQL, Python, Redis, dbt, Apache Superset"
+    archetypes:
+      - Data Engineering
+      - Analytics Engineering
+    repo_url: "https://github.com/SagarMarthandan/E2E-weather-data-report"
+    bullets:
+      - "End-to-end ELT pipeline ingesting real-time weather data from Weatherstack API, transforming with dbt, and visualizing via Apache Superset dashboards"
+      - "Python ingestion layer: synchronous GET requests to Weatherstack API; psycopg2 ensures schema/table existence on every run; appends utc_offset and NOW() timestamp for time-series analysis"
+      - "Apache Airflow orchestration with 1-minute polling schedule (timedelta(minutes=1)); strict ingest-then-transform policy — dbt transformations only trigger after successful ingestion, preventing stale/null data processing"
+      - "Redis message broker for Airflow task queue resilience — task messages survive web server restarts; DockerOperator spins up sibling dbt containers via DooD (Docker-out-of-Docker) socket mounting"
+      - "dbt staging model stg_weather_data: Window Function (row_number()) deduplication on API observation time; utc_offset applied to system timestamp for local time conversion"
+      - "dbt mart model daily_average: aggregates to daily grain with average temperature and wind speed per city; materialized as table (not view) for fast Superset queries without re-calculating averages on every dashboard refresh"
+      - "Apache Superset dashboards: temperature trends over time, average wind speed comparisons, real-time weather status updates — connected directly to daily_average mart"
+      - "Docker Compose orchestration: Postgres, Airflow, Superset, Redis; bind-mount dbt project at runtime for SQL model updates without image rebuilds"
+    keywords: [python, sql, airflow, docker, postgresql, redis, dbt, apache superset, etl, elt, data pipeline, data engineering, orchestration, data visualization, analytics, containerization, real-time ingestion]
+
+  - title: "Kafka FX Rates: Batch vs Stream Processing Walkthrough"
+    description: "Kafka-driven pipeline processing FX rates from batch CSV files to real-time stream consumers for analytics and monitoring."
+    technologies: "Apache Kafka, Python, Pandas, Jupyter"
+    archetypes:
+      - Data Engineering
+    repo_url: "https://github.com/SagarMarthandan/mini-kafka-stream"
+    bullets:
+      - "Kafka-driven data pipeline processing Foreign Exchange (FX) rates from static batch CSV files to real-time stream consumers for analytics and monitoring"
+      - "Producer notebook (producer_360T.ipynb): ingests rates_sample.csv, serializes each FX event to JSON, publishes to currency_fx_rates Kafka topic with 1-second inter-message delay to simulate steady stream"
+      - "Consumer notebook (consumer_360T.ipynb): real-time analytics engine listening to Kafka topic; compares current rate against previous day's 5 PM rate dictionary; calculates percentage change per currency pair"
+      - "Terminal billboard rendering: live display of currency pair, current rate, and trend direction — demonstrates real-time consumer-side analytics without a dedicated dashboard backend"
+      - "Batch vs stream processing comparison: documents latency (minutes/hours vs milliseconds/seconds), data arrival patterns, and Kafka's role as central nervous system for live data vs historical log storage"
+      - "Kafka configuration: single-partition topic with replication-factor 1 on localhost:9092; Zookeeper coordination; kafka commands cheat sheet for topic management"
+      - "Pandas for data manipulation and CSV ingestion; Jupyter notebook interface for interactive producer/consumer execution and debugging"
+      - "Demonstrates Kafka's ability to turn static files into a high-throughput stream, making the analytics layer scalable without modifying the data source"
+    keywords: [python, apache kafka, pandas, jupyter, streaming, real-time, data pipeline, data engineering, batch processing, message queue, producer consumer, real-time analytics]
+
+  - title: "Adventure Works: Global Sales & Returns Dashboard"
+    description: "Power BI dashboard analyzing global cycling equipment sales and returns using star schema modeling and advanced DAX time intelligence."
+    technologies: "Power BI, DAX, M Language, CSV"
+    archetypes:
+      - Data Analyst
+      - Analytics Engineering
+    repo_url: "https://github.com/SagarMarthandan/powerBI---Project"
+    bullets:
+      - "Power BI dashboard analyzing global Adventure Works cycling equipment sales and returns across 3 continents (North America, Europe, Australia) with star schema modeling and advanced DAX time intelligence"
+      - "Star schema data model: 3 fact tables (Sales Data, Returns Data) filtered by 4 dimension tables (Calendar Lookup, Product Lookup, Customer Lookup, Product Categories Lookup) with proper filter-direction relationships"
+      - "Core financial DAX measures using SUMX iterators: Total Revenue (quantity × discount price via RELATED), Total Cost (quantity × product cost), Total Profit — row-by-row calculation across sales transactions"
+      - "Returns analysis: Return Rate via DIVIDE (safe division-by-zero handling), Bike Returns via CALCULATE filter context override, % of All Returns using ALL() for grand total denominator"
+      - "Time intelligence: Previous Month Revenue via DATEADD(-1, MONTH), 90-day rolling profit via DATESINPERIOD, 10-day rolling revenue for short-term trend detection, YTD Revenue via DATESYTD for cumulative fiscal tracking"
+      - "Dynamic targets: 110% growth multiplier on previous month's revenue and orders; Target Gap analysis (Revenue/Order/Profit gaps) displayed in KPI cards and bullet charts for instant visual feedback"
+      - "What-If scenario analysis: disconnected Price Adjustment parameter table with slicer — users simulate profit impact of price changes (e.g., +5%) without altering underlying data; adjusted revenue re-runs SUMX logic"
+      - "M-Table hack: Measure Table generated via M-Language binary decompression — creates schema-only table with no data source dependencies, keeping the field list clean for housing all DAX measures"
+      - "3 functional dashboard areas: Executive Summary (high-level KPIs with geographic/category breakdowns), Product Detail (performance, return rates, What-If simulations), Customer Detail (individual behavior, top spenders, order frequency)"
+    keywords: [power bi, dax, m language, power query, csv, data visualization, dashboard, business intelligence, bi, star schema, data modeling, time intelligence, what-if analysis, return rate analysis, sales analytics, kpi tracking, reporting, business analytics, data storytelling, self-service bi, trend analysis, etl, sql]
+
+  - title: "Advanced Database Techniques"
+    description: "Reference library of SQL patterns covering window functions, CTEs, complex joins, query optimization, and schema design across MySQL and PostgreSQL."
+    technologies: "SQL, MySQL, PostgreSQL"
+    archetypes:
+      - Data Analyst
+    repo_url: "https://github.com/SagarMarthandan/SQL-Practice"
+    bullets:
+      - "Structured reference library of SQL patterns and techniques organized from foundational queries to advanced analytical functions, tested across MySQL and PostgreSQL"
+      - "Window functions: OVER(), PARTITION BY, RANK(), DENSE_RANK(), LEAD(), LAG(), and running aggregates for time-series comparative analysis and row-level computations"
+      - "Complex joins across one-to-many and many-to-many relationships; foreign key design and join table patterns for normalized schemas; inner, left, right, and full outer join patterns"
+      - "CTEs and query composition: common table expressions for multi-step transformations, recursive CTEs for hierarchical data traversal, subquery patterns for complex filtering logic"
+      - "Query optimization: execution plan analysis via EXPLAIN, index strategies for large datasets, patterns for avoiding full-table scans, and performance comparison between equivalent query formulations"
+      - "Schema design: primary and foreign key constraints, UNIQUE and CHECK constraints for data integrity, ALTER TABLE modifications, view creation for reusable query logic"
+      - "Aggregate functions: COUNT, SUM, AVG, MIN, MAX with GROUP BY and HAVING clauses; WITH ROLLUP for multi-level aggregation reporting across hierarchical groupings"
+      - "Cross-database patterns covering syntax differences between MySQL and PostgreSQL in data types, string functions, and window function support"
+    keywords: [sql, mysql, postgresql, window functions, ctes, joins, query optimization, database concepts, relational databases, data analysis, schema design, aggregate functions, views, constraints, data modeling, database design]
+
+  - title: "Retrieval-Augmented Generation (RAG) PDF Query System"
+    description: "End-to-end RAG pipeline ingesting PDFs into a FAISS vector database with LangChain and OpenAI for semantic retrieval and question answering."
+    technologies: "LangChain, FAISS, OpenAI, PyPDF2, Python"
+    archetypes:
+      - AI Engineer
+      - AI/LLMOps
+    repo_url: "https://github.com/SagarMarthandan/RAG-LLM-pdf-query"
+    bullets:
+      - "End-to-end Retrieval-Augmented Generation (RAG) pipeline ingesting dense PDF documents into a FAISS vector database with LangChain orchestration and OpenAI LLM for context-grounded question answering"
+      - "Document ingestion: PyPDF2 extracts raw text from PDF streams; Google Drive mount for Colab-based execution; consolidated raw_text buffer across all document pages"
+      - "Semantic chunking via CharacterTextSplitter: 1000-character chunks with 200-character overlap to preserve context boundaries and prevent semantic separation of ideas split across page breaks"
+      - "OpenAI text-embedding-ada-002 for high-dimensional vector representation; FAISS IndexFlatL2 for ultra-fast nearest-neighbor similarity search with sub-millisecond query latency"
+      - "LangChain QA chain with stuff document type: FAISS retrieves top-K relevant segments, injects them directly into LLM system prompt, OpenAI GPT engine generates grounded answers from retrieved context"
+      - "TikToken for Byte-Pair Encoding (BPE) token counting — monitors and validates token lengths to fit within OpenAI context window limits"
+      - "Credential management: dynamic OPENAI_API_KEY prompting via getpass (no hardcoded keys); Google Colab Secrets integration as alternative; environment variable validation with placeholder detection"
+      - "Error handling: IndexError guard on FAISS.from_texts() for blank text from scanned PDFs; OCR recommendation (pytesseract) for image-only documents; file path existence verification"
+    keywords: [python, langchain, faiss, openai, pypdf2, rag, llm, ai, retrieval, nlp, machine learning, semantic search, vector database, embeddings, document parsing, question answering, retrieval-augmented generation]
+
+  - title: "COMAD PCA - Robust Principal Component Analysis"
+    description: "Robust PCA implementation using Co-Median Absolute Deviation for outlier-resistant dimensionality reduction, benchmarked across multiple datasets."
+    technologies: "Python, NumPy, Pandas, scikit-learn, Matplotlib, SciPy, Jupyter Notebook"
+    archetypes:
+      - ML Engineering
+      - Data Analyst
+    repo_url: "https://github.com/SagarMarthandan/PCA-using-Co-Median"
+    bullets:
+      - "Robust PCA implementation replacing mean-based covariance with Co-Median Absolute Deviation (COMAD) for outlier-resistant dimensionality reduction — maintains data integrity under contamination"
+      - "Mathematical foundation: CoMed(X,Y) = median((X - median(X)) · (Y - median(Y))) — median-based centering and aggregation provides 50% breakdown point vs 0% for standard deviation"
+      - "Complete pipeline: data ingestion → MAD calculation and standardization (k ≈ 1.4826 scaling constant) → Co-Median matrix construction → eigendecomposition → dimensionality reduction → comparative analysis"
+      - "Benchmarked across 7 datasets: Iris, Wine, Glass, MNIST, Wheat, PIMA, Yeast — plus synthetic Gaussian data contaminated with outliers for controlled robustness testing"
+      - "Comparative metrics: Frobenius norm reconstruction error (||X - X_reconstructed||_F / ||X||_F), pairwise distance matrix preservation, variance explained per component (Mean vs COMAD)"
+      - "Downstream evaluation: classification accuracy (KNN, SVM, Random Forest) on projected features with accuracy/precision/recall/F1/ROC-AUC; clustering quality (K-Means) with silhouette scores and confusion matrices"
+      - "Visualization: 2D and 3D projections of principal components via Matplotlib; distance matrix heatmaps; scree plots comparing variance explained between methods"
+      - "scikit-learn integration for ML pipeline; SciPy for eigendecomposition and covariance computation; NumPy for matrix operations; Pandas for dataset loading and preprocessing"
+    keywords: [python, numpy, pandas, scikit-learn, matplotlib, scipy, jupyter, machine learning, data analysis, statistical analysis, feature engineering, data science, data visualization, dimensionality reduction, outlier detection, clustering, classification]
+
+  - title: "RACEYARD (formerly ROSYARD): Pipeline Optimization & QA Automation"
+    description: "University Master Project (CAU Kiel) — QA framework with W&B and Sweeps automation for sensor tuning on an autonomous driving simulation (ROS/Gazebo). Team project; my work was the QA/automation."
+    technologies: "Python, ROS, Gazebo, Weights & Biases, ruamel.yaml, matplotlib, rospy, YAML"
+    archetypes:
+      - Agentic/Automation
+      - ML Engineering
+      - Data Engineering
+    repo_url: ""
+    bullets:
+      - "University Master Project (CAU Kiel, WiSe 2020/21) — QA framework for RACEYARD autonomous driving simulation: 5 sequential ROS pipelines (Perception, SLAM, Centerline, Driving, Actuation) running in Gazebo with RViz visualization"
+      - "QA framework enablement: instrumented existing QA node to measure cone detection accuracy against Gazebo ground truth — detection accuracy %, false-positive rate, color estimation accuracy, mean distance between detected and ground truth cones"
+      - "Weights & Biases integration: dynamic config ingestion via rospy from ROS Parameter Server (no hardcoded values); converted console logs to wandb.log calls; matplotlib cone-detection plots converted to wandb.plot.scatter for track visualization on W&B dashboard"
+      - "3 separate W&B reports: Camera, LiDAR, and SLAM metrics logged as standalone runs with project names and timestamps for filtering and cross-comparison"
+      - "Custom Sweeps automation wrapper: W&B Sweeps normally targets a single ML script — built a multi-process wrapper to make Sweeps work across the ROS stack (roscore, Gazebo, 14 concurrent ROS nodes)"
+      - "Wrapper architecture: parser.py (intercepts Sweep CLI args, casts to float) → pipeline_wrapper.py (writes value to default_config.yaml via ruamel.yaml round-trip editing) → roscore.py + simulation.py (spawned with 5-minute hard timer)"
+      - "Solved server-client GUI conflict: another team member's GUI loaded parameters permanently into ROS server memory, blocking dynamic config changes mid-sweep — bypassed GUI entirely, pulling from raw general_config.yaml"
+      - "Solved termination limbo: child ROS nodes failed to self-terminate after metric logging, blocking subsequent Sweep iterations — implemented hard 5-minute subprocess timer that forcefully kills the entire process tree"
+      - "Collaborated with Lorenz on Docker containerization and process flow documentation — manually traced ROS node logs to produce abstract flow chart documenting all nodes, topics, and values across 5 pipelines"
+    keywords: [python, ros, gazebo, weights and biases, wandb, matplotlib, rospy, yaml, hyperparameter tuning, experiment tracking, qa automation, sweeps automation, sensor parameter tuning, simulation pipeline, autonomous driving, robotics, mlops, data visualization]
+
+  - title: "ATS Resume Pipeline Streamlit App"
+    description: "Production-grade Streamlit app automating resume tailoring and ATS optimization via a 6-stage pipeline with LaTeX compilation and LLM integration."
+    technologies: "Streamlit, LaTeX, OpenAI API, PowerShell, Python"
+    archetypes:
+      - Agentic/Automation
+      - Backend/Platform Engineering
+      - Data Engineering
+    repo_url: "https://github.com/SagarMarthandan/ATS-Resume-Streamlit"
+    bullets:
+      - "Production-grade Streamlit app automating resume tailoring and ATS optimization via a strict 6-stage algorithmic workflow calibrated for DACH region and global ATS systems"
+      - "6-stage pipeline: ATS Analysis & Gap Detection (0-100 scoring matrix) → Resume Rewrite (LaTeX mapping) → Cover Letter (Geschäftsbrief format) → PDF Compilation (double-pass pdflatex) → JD Archival → Visual Layout Audit"
+      - "Interactive decision terminal: custom st.session_state state-machine pauses execution at end of Step 1 if ATS score <85% benchmark; retro terminal UI captures user choice (A/B/C) and injects it into Step 2 rewrite strategy"
+      - "OpenCode Go API integration via official OpenAI Python Client: dynamic model discovery from API endpoint; built-in fallback dropdown mapping allowed models (GLM-5.1, GLM-5, Kimi K2.6, DeepSeek V4 Pro, Qwen3.7 Max, etc.)"
+      - "ATS scoring matrix: 4-category German-market calibration (Keywords, Relevance, Tech Stack, Formatting, Soft Skills); auto-detects JD language; extracts requirements from candidate-facing profile segments only"
+      - "Project Swap Directive: Step 1 identifies low-relevance resume projects to drop and selects verified portfolio replacements — maintains target of 3-4 projects total with quantified metrics"
+      - "WinError 123 folder sanitizer: cleans illegal Windows filename characters and strips instructional template text from LLM-generated folder headers; falls back safely to clean directory"
+      - "Drag-and-drop base file uploader with automatic local directory fallback; custom prompt instructions override for pipeline skill files across all steps; synchronized LLM streaming for real-time output rendering"
+    keywords: [python, streamlit, latex, openai api, powershell, automation, llm integration, job application, pdf generation, data pipeline, application development, ats optimization]
+
+  - title: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
+    description: "ATS-optimized resume and cover letter pipeline with URL scraping, LLM-based project ranking, YAML configs, LaTeX compilation, parse-integrity audits, and Obsidian vault sync."
+    technologies: "Python, LaTeX, PyYAML, ReportLab, pypdf, Jina Reader"
+    archetypes:
+      - Agentic/Automation
+      - Backend/Platform Engineering
+    repo_url: "https://github.com/SagarMarthandan/llm-cv"
+    bullets:
+      - "End-to-end ATS-optimized resume and cover letter generation pipeline using structured YAML configs, LLM-based project ranking from a 16-project catalog, and LaTeX compilation with ReportLab fallback"
+      - "LLM-based project ranking: agent reads condensed project catalog YAML (16 projects with bullets, keywords, tech stack, archetypes) and ranks top 6 against the JD — replaces algorithmic phrase matching and semantic embeddings with LLM judgment"
+      - "Optional Step 0 JD scraping: Jina Reader for JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio); heuristic JD-shape validation (role title + company + ≥2 section markers + >200 chars); URL-hash cache with 7-day TTL"
+      - "ATS scoring: 4-category German-market matrix (max 100 points); score gate <85 triggers HOLD with remedy suggestions, ≥85 sets PROCEED; ATS vendor inference from JD text/URL footprints"
+      - "DIN 5008 Form B cover letter: metric-grounded, adapted to formal German business formatting with Anschriftfeld, right-aligned date, bold Betreff, gender-tag stripping (w/m/f/d regex), 250-320 words (180-240 German)"
+      - "Parse-integrity audit: pypdf extracts PDF text layer, checks for Unicode replacement glyphs (U+FFFD), cross-references critical keywords/tools against extracted text; on failure, ReportLab fallback recompiles and re-audits"
+      - "Resume parseability audit: standalone audit on final PDF — Unicode integrity, keyword recovery, section header detection (style-aware: 6 US / 5 German), contact info extraction (5 fields); pass criteria: 100% keyword recovery, all sections, 5/5 contacts, zero corruptions"
+      - "Obsidian vault sync: targeted incremental sync per application — generates linked notes (application, company, role, skill, project, ATS vendor, source) with wikilinks for graph-view navigation; folder sort into Applications/YYYY/MM/DD/ tree"
+      - "Algorithmic monoculture countermeasures: ATS vendor tracking, application source diversification (Cold Apply/Referral/LinkedIn Connection), project verification links, 3 resume variation modes (Balanced/Project-Heavy/Skills-Heavy), render mode choice (LaTeX/ReportLab)"
+    keywords: [python, latex, pyyaml, reportlab, pypdf, jina reader, automation, ai agents, llm, rag, data pipeline, ats optimization, obsidian sync, yaml configuration, pdf generation, parse-integrity audit]

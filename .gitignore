@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# Application outputs (generated per-run)
+Applications/
+
+# Cache and runtime files
+okf/.font_cache.json
+okf/.location_cache.json
+okf/.jd_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Workspace
+llm-cv.code-workspace
