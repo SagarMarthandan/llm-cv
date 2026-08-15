@@ -34,6 +34,8 @@ Generate a tailored, high-scannability resume (`Resume.yaml`) directly in struct
 - **Tailor Candidate Location:** Load `ATS_Report.yaml` and read the `closest_candidate_location` value computed in Step 1. Set the candidate location `contact_info.location` in `Resume.yaml` to this closest city (e.g., `"Frankfurt, Germany"` instead of defaulting to `"Kiel, Germany"`) to establish local alignment with the employer's region.
 - **Preserve Employment Dates:** Copy all employment date ranges (start and end month/year) exactly from the base resume. Do not generalize, approximate, or omit them.
 - **Project Verification Links:** For each project in `project_info.md`, read the `Repo:` line and copy the URL into the corresponding project block in `Resume.yaml` as a `repo_url:` field. This URL will be compiled as a clickable `[GitHub]` link next to the project title in the PDF.
+
+> **ANTI-HALLUCINATION GUARDRAIL — Project Data Sourcing:** Every project in `Resume.yaml` (both `projects` list for US style and `project_bullets` for German style) must be sourced from `project_info.md`, which in turn was generated from `okf/project_catalog.yaml`. Do not invent projects, do not split one catalog project into multiple resume entries, and do not merge two catalog projects into one. The `name` field must match the project title in `project_info.md` exactly. The `repo_url` field must be copied verbatim from the `Repo:` line in `project_info.md` — do not construct, shorten, or guess URLs. If a project in `project_info.md` has no `repo_url` (empty string), omit the `repo_url` field entirely rather than fabricating one. Quantified metrics in project bullets (record counts, percentages, latency reductions, etc.) must originate from the catalog's bullet text — reframe them for the JD context but do not invent new numbers.
 - **Resume Variation Strategy:** Select a `resume_variation` mode and set it as a top-level key in `Resume.yaml`:
   - `Balanced` (default): The standard Jake Ryan structure — 3 projects, 4 experience bullets.
   - `Project-Heavy`: Focus on execution — write verbose descriptions for 4 projects (up to 300 chars each), simplify the skills block.
@@ -76,7 +78,7 @@ Generate a tailored, high-scannability resume (`Resume.yaml`) directly in struct
   The order is data-driven: a resume YAML may supply a top-level `section_order` key to reorder sections per-application. Unknown keys are ignored; omitted sections are skipped. When `section_order` is absent, the style-specific default is used. Both the LaTeX and ReportFallback renderers read from the same source of truth in `renderers/resume_common.py` (US) or `renderers/resume_latex_german.py` / `renderers/resume_reportfallback_german.py` (German).
 
 ### 2. Structural & Layout Constraints
-To pass the visual audit and recruiter "eye test," the resume MUST fit within a clean 1.5-page layout:
+To pass the visual audit and recruiter "eye test," the resume MUST fill exactly ONE full A4 page: no empty space at the bottom, no large gaps between sections, no spill onto page 2. A half-empty page is a FAIL, not an acceptable outcome:
 - **Output Filename Language Rules:**
   - **English JDs:** Resume PDF ➔ `SAGAR_MARTHANDAN_Resume.pdf` (LaTeX source ➔ `SAGAR_MARTHANDAN_Resume.tex`).
   - **German JDs:** Resume PDF ➔ `SAGAR_MARTHANDAN_Lebenslauf.pdf` (LaTeX source ➔ `SAGAR_MARTHANDAN_Lebenslauf.tex`).
@@ -107,12 +109,20 @@ To pass the visual audit and recruiter "eye test," the resume MUST fit within a 
 - **Format:** LaTeX templates are primary (saving the `.tex` source file generated), ReportLab fallback. No photo embedding — photos are added manually via a PDF editor if needed.
 - **Render Mode:** Per SKILL.md §"Select Render Mode" — `render_mode: latex` (default) or `render_mode: reportfallback`. When ReportFallback is selected, skip Section 4 (LaTeX Polish) and Steps B/C — the initial `yaml_to_pdf.py` invocation produces the final PDF.
 
-### 2.5. Space-Fill Directive (Fill the Resume)
-After initial compilation, assess the bottom half of the resume. If significant whitespace exists, fill it proactively:
+### 2.5. Space-Fill Directive (Fill the Resume — MANDATORY, ONE FULL PAGE)
+After initial compilation, the resume MUST be full: content must reach the bottom margin of page 1, with at most 1 line of trailing whitespace and no spill to page 2. This is a pass/fail criterion, not a preference. Measure it from the compiled PDF (render a page preview and check the bottom region, or check the last text block's position against the page height). If the page is under-filled, fill it proactively in this order:
+
+0. **Maximize every character budget first** (free, zero-risk density):
+   - Summary: extend to its limit (200 chars English / 170 German) while keeping exactly 2 lines.
+   - Each project summary: extend to 250-300 chars (230-280 German) — the renderer joins bullets into prose, so add outcome/metric bullets up to the budget.
+   - Experience bullets: tighten to 100-105 chars each (the 105 limit is a ceiling, not a target — get as close to it as justified).
 1. **Add technical skills** from `skill_gaps` in `ATS_Report.yaml` that the candidate genuinely knows but aren't yet listed in the Technical Skills section.
 2. **Add one more project** from `project_info.md` (which now contains 6 candidates — select the next-ranked one not already in the resume). Write it in the same `name --- [GitHub] --- summary` format with 3-5 bullets targeting 250-300 chars.
-3. **Re-compile and re-audit.** Target: the resume should reach approximately 1.5 pages with no large gaps in the bottom half. Do NOT overflow to 2 full pages — if adding content causes overflow, trim back or swap a weaker project.
-4. **Priority order:** Fill with skills first (cheapest in space), then an extra project if more space is needed. A half-empty resume signals thin experience; a well-filled resume signals depth.
+3. **Re-compile and re-audit.** Target: content reaches the bottom margin with <= 1 line of trailing whitespace, no internal gaps > 2 empty lines, exactly 1 page. Do NOT overflow to 2 pages — if adding content causes overflow, trim or swap a weaker project.
+4. **Verify fullness on the final PDF** (render preview): last text line within the bottom ~10% of the page; if it is not, iterate steps 0-3 again. A resume with visible bottom whitespace is NOT done.
+
+> **ANTI-HALLUCINATION GUARDRAIL — Space-Fill:** Projects added during space-filling MUST come from `project_info.md` only. Do not invent new projects to fill space. Technical skills added during space-filling must come from the `skill_gaps` list in `ATS_Report.yaml` AND must be tools/technologies the candidate genuinely knows (present in the project catalog or base resume). Do not add skills the candidate has never used just to fill whitespace.
+5. **Priority order:** Fill with character-budget expansion first (step 0, zero risk), then skills (cheapest in space), then an extra project if more space is needed. A half-empty resume signals thin experience; a well-filled resume signals depth.
 
 ### 3. Visual Layout Audit & Stop-Slop Checks
 - Apply the **Stop-Slop** rules as defined in SKILL.md (strict active voice, absolute adverb ban, zero em-dashes, no throat-clearing openers).
@@ -125,6 +135,7 @@ After initial compilation, assess the bottom half of the resume. If significant 
   - **Audit check:** For each project, flag any bullet whose information content reduces to "used [tool]" with no metric, action, or result. Rewrite it to carry an outcome or cut the tool mention and keep only the outcome.
   - **Header discipline:** Keep tools lines to 5-7 JD-aligned entries; move niche libraries into a bullet only if they carry an outcome, otherwise drop them.
 - **Orphan Punctuation Check:** Verify no orphan periods, spaces before punctuation, or double periods in project prose. The renderer's `_clean_prose` utility handles this automatically, but the agent must still verify the compiled PDF visually. Run `--check-tex` and scan the PDF for any stray punctuation artifacts.
+- **Page Fill Density Check (MANDATORY):** From the rendered PDF, verify (a) exactly 1 page, (b) the last text line ends within the bottom ~10% of the page (<= 1 line of trailing whitespace), (c) no internal gap of more than 2 empty lines between sections. If any check fails, apply the §2.5 Space-Fill Directive and re-compile. This diagnostic must be reported as `page_fill_density` in `Layout_Audit_Report.yaml`.
 - Write findings to `Layout_Audit_Report.yaml` inside the folder.
 - **Self-Correction Rule:** If the audit detects layout violations (e.g., experience bullet wraps to next line or exceeds 105 chars, summary > 2 lines), **immediately adjust the text parameters** so the primary `Resume.yaml` compiles successfully without any layout warnings.
 - **v2 Trigger:** Generate `SAGAR_MARTHANDAN_Resume_v2.yaml` only if self-correction requires changing more than 3 bullets or restructuring an entire section. For smaller corrections, patch `Resume.yaml` in place. Set `optimized_v2_generated: true` in `Layout_Audit_Report.yaml` if a v2 file is written, otherwise leave it `false`.
@@ -148,7 +159,7 @@ When no `repo_url` is present:
 1. **No bullet points:** The renderer already joins bullets into a single prose paragraph. Do not reintroduce `\begin{itemize}...\end{itemize}` blocks.
 2. **No separate "Tools:" line:** Tools must be woven naturally into the description prose (e.g., "orchestrated with Airflow DAGs on GCP" instead of "Tools: Airflow, GCP").
 3. **Format preserved:** Keep the `name --- [GitHub] --- summary` structure. The project name, em-dash separators (`---`), and link markup (`[GitHub]`) are excluded from the character count — only the summary text counts.
-4. **Quantification:** Every project must contain at least one quantified metric (number, percentage, volume, or time unit).
+4. **Quantification:** Every project must contain at least one quantified metric (number, percentage, volume, or time unit). Metrics must originate from the project catalog's bullet text — reframe them for the JD context but do not invent new numbers. If the catalog does not contain a metric for a given aspect, omit that metric rather than fabricating one.
 5. **Length Limits:** Each project summary (description text only — project name, em-dash separators, and link markup are excluded) must be `<= 300` characters (`<= 280` characters for German projects) and fit within exactly 3 lines max on the compiled PDF.
 6. **Keyword Preservation:** All tools, technologies, and domain terms from the original YAML bullets must appear in the paragraph prose to preserve the ATS score. Do not drop keywords.
 7. **Active voice:** Start sentences with active action verbs. Do not use adverbs ending in `-ly` or punctuation em-dashes (except for the `---` separators around the link).
@@ -203,6 +214,34 @@ For German resumes, substitute `SAGAR_MARTHANDAN_Lebenslauf.pdf` as the first ar
   - Section headers: all expected headers detected (6 for US style, 5 for German style)
   - Contact info: 5/5 extracted
 - **Automatic Recovery:** If the audit fails, `resume_parseability.py` automatically re-compiles the resume with the ReportLab fallback renderer (style-aware: US or German) and re-audits the recovered PDF. No manual intervention is needed. Use `--no-recovery` to disable this behavior if you want to debug the failure manually.
+- **FONT RULE — keyword misses are NOT font problems:** A keyword miss means the YAML wording is unrecoverable in the PDF text layer (e.g., a parenthesized skill string or a comma-heavy string that pypdf splits across glyphs). Fix the YAML wording (de-parenthesize, split the string, remove special characters) and recompile. NEVER patch the `.tex` preamble to a different font (see SKILL.md §Font Rule) — font swaps break the audit they claim to fix and change the required LM Roman 10 output.
+
+### 7. Post-Generation Anti-Hallucination Validation (MANDATORY)
+
+After writing `Resume.yaml` and before final compilation, verify that every project in the resume exists in the catalog and that no metrics were fabricated:
+
+```bash
+/home/sagar/Skills/llm-cv/.venv/bin/python -c "
+import yaml, re
+with open('/home/sagar/Skills/llm-cv/okf/project_catalog.yaml') as f:
+    catalog = {p['title']: p for p in yaml.safe_load(f)['projects']}
+with open('Resume.yaml') as f:
+    resume = yaml.safe_load(f)
+# Collect project names from both US-style projects and German-style project_bullets
+names = []
+if 'projects' in resume:
+    names += [p['name'] for p in resume.get('projects', [])]
+for exp in resume.get('professional_experience', []):
+    for pb in exp.get('project_bullets', []):
+        names.append(pb['name'])
+print('Resume projects:', len(names))
+for n in names:
+    match = 'OK' if n in catalog else 'HALLUCINATED'
+    print(f'  [{match}] {n}')
+"
+```
+
+If any project name does not match a catalog `title` exactly, you have hallucinated a project. Remove it and replace it with a real catalog project from `project_info.md` that was not already selected. Re-run this check until all project names match catalog entries.
 
 ## Optional: Add One More Project
 
@@ -212,6 +251,8 @@ When the user asks to add an additional project to the resume (e.g., "add a 4th 
 - Read `project_info.md` in the application folder — it contains the top 6 LLM-ranked projects from Step 1.
 - Pick the next-ranked project that is NOT already in the resume. If `project_info.md` doesn't have a spare, read `okf/project_catalog.yaml` and select the next best project for the JD using your own judgment.
 - If the user names a specific project, use that one.
+
+> **ANTI-HALLUCINATION GUARDRAIL — Add One More Project:** The selected project MUST be a real entry from `okf/project_catalog.yaml` (by exact `title` match). Do not invent, derive, or split projects. The `repo_url` must be copied verbatim from the catalog entry. If the user names a project that does not exist in the catalog, inform the user and suggest the closest matching catalog project instead.
 
 ### 2. Write the Project Entry
 - Read the project's entry from `okf/project_catalog.yaml` to get the full description, technologies, repo URL, and bullets.
@@ -231,7 +272,7 @@ Then re-run the parse-integrity audit to verify the new project's keywords are r
 ```bash
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/resume_parseability.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
 ```
-- If the resume now spills to 2 pages, trim the summary or remove a weaker project to stay on 1 page.
+- The resume must stay on exactly one full page: if it spills to 2 pages, trim the summary or remove a weaker project; if it has trailing whitespace, keep expanding projects/skills per §2.5 until the page is full.
 
 ## Output Target & Directory Structure
 Save the outputs inside the job folder:
@@ -240,6 +281,7 @@ Save the outputs inside the job folder:
 ```yaml
 type: layout_audit_report
 eye_test_diagnostics:
+  page_fill_density: { status: "Pass/Fail", feedback: "Exactly 1 page, no trailing whitespace, no page-2 spill. Fail = under-filled page." }
   page_boundary_splits: { status: "Pass/Fail", feedback: "..." }
   summary_cognitive_load: { status: "Pass/Fail", feedback: "..." }
   skills_block_density: { status: "Pass/Fail", feedback: "..." }

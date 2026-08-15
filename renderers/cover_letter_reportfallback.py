@@ -53,11 +53,11 @@ def create_cover_letter_pdf_reportlab(data, output_path):
     )
     body_style = ParagraphStyle(
         'CLBody', parent=styles['Normal'],
-        fontName=F_REG, fontSize=11, leading=14.5, alignment=4, textColor=TEXT_DARK,
+        fontName=F_REG, fontSize=11, leading=13, alignment=4, textColor=TEXT_DARK,
     )
     left_body_style = ParagraphStyle(
         'CLLeftBody', parent=styles['Normal'],
-        fontName=F_REG, fontSize=11, leading=14.5, alignment=0, textColor=TEXT_DARK,
+        fontName=F_REG, fontSize=11, leading=13, alignment=0, textColor=TEXT_DARK,
     )
     enclosures_style = ParagraphStyle(
         'CLEnclosures', parent=styles['Normal'],
@@ -132,9 +132,8 @@ def create_cover_letter_pdf_reportlab(data, output_path):
     # ── Body paragraphs ───────────────────────────────────────────────────
     for p in data.get('paragraphs', []):
         story.append(Paragraph(p, body_style))
-        story.append(Spacer(1, 6))
+        story.append(Spacer(1, 10))
 
-    story.append(Spacer(1, 8))
 
     # ── Closing + signature ───────────────────────────────────────────────
     closing = data.get('closing', 'Mit freundlichen Grüßen,')

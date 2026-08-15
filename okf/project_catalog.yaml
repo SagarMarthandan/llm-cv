@@ -7,6 +7,8 @@ projects:
       - Analytics Engineering
       - Backend/Platform Engineering
       - AI Engineer
+    business_problem: "Correlating city crime patterns with bike-share ridership to test whether crime near stations affects usage, across 8.6M crime events and 50M+ trips with a BigQuery ML regression."
+    transferable_skills: [etl, elt, batch processing, stream processing, data warehousing, data modeling, orchestration, data quality, cloud infrastructure, machine learning, ci/cd, observability, geospatial analysis, real-time data]
     repo_url: "https://github.com/SagarMarthandan/chicago-data-pipeline"
     bullets:
       - "End-to-end data pipeline correlating Chicago crime patterns with bike-share ridership — processes 8.6M crime events and 50M+ Divvy trips across batch and streaming paths"
@@ -28,6 +30,8 @@ projects:
       - Data Engineering
       - Analytics Engineering
       - Backend/Platform Engineering
+    business_problem: "Providing a governed NYC taxi trip analytics foundation on GCP with terraformed infrastructure, Airbyte ingestion, dbt star-schema marts, and quality-gated CI/CD for monthly fare, route, and demand analysis."
+    transferable_skills: [etl, elt, data warehousing, data modeling, star schema, orchestration, data quality, infrastructure as code, ci/cd, cloud data platform, analytics, containerization]
     repo_url: "https://github.com/SagarMarthandan/NYC-Bigquery"
     bullets:
       - "End-to-end GCP data pipeline ingesting monthly NYC Taxi trip records (2025) with Terraform-provisioned infrastructure, Airbyte replication, Airflow orchestration, and dbt transformations into BigQuery"
@@ -46,6 +50,8 @@ projects:
     archetypes:
       - Data Engineering
       - Analytics Engineering
+    business_problem: "Turning YouTube channel analytics into a queryable, quality-gated warehouse with API extraction, drift-aware staging synchronization, core transformations, and Soda integrity checks on every run."
+    transferable_skills: [elt, api integration, data warehousing, data modeling, orchestration, data quality, containerization, ci/cd, incremental loading, data pipeline design]
     repo_url: "https://github.com/SagarMarthandan/Youtube_E2E_DE"
     bullets:
       - "Containerized ELT pipeline extracting YouTube channel analytics via Data API v3, processing through staging and core warehouse layers with automated Soda data quality gates"
@@ -63,6 +69,8 @@ projects:
     technologies: "Azure Data Factory, Databricks, Spark, Delta Lake, ADLS Gen2, Azure Key Vault, PySpark, Airflow"
     archetypes:
       - Data Engineering
+    business_problem: "Building a Formula 1 analytics platform on Azure with Medallion-architecture ingestion of Ergast datasets, ADF orchestration, Databricks transformations, and Delta Lake ACID guarantees."
+    transferable_skills: [etl, elt, medallion architecture, data lakehouse, data transformation, orchestration, cloud infrastructure, data governance, incremental loading, spark engineering, data quality]
     repo_url: "https://github.com/SagarMarthandan/F1-AzureDatabricks"
     bullets:
       - "End-to-end Formula 1 data ingestion and transformation platform on Azure — ingests Ergast F1 datasets (CSV/JSON) through Medallion Architecture (Bronze → Silver → Gold) using ADF, Databricks, and Delta Lake"
@@ -81,6 +89,8 @@ projects:
     archetypes:
       - Data Engineering
       - Analytics Engineering
+    business_problem: "Transforming raw Airbnb listings, hosts, and reviews into analytics-ready marts on Snowflake with SCD Type 2 history, incremental facts, and dbt-expectations quality checks."
+    transferable_skills: [elt, data modeling, data warehousing, scd type 2, incremental loading, data quality, orchestration, analytics, business intelligence, data marts]
     repo_url: "https://github.com/SagarMarthandan/DBT-Airbnb-Practice-Project"
     bullets:
       - "End-to-end dbt pipeline transforming raw Airbnb data into analytics-ready marts on Snowflake, orchestrated by Dagster with asset-based scheduling and SCD Type 2 snapshots"
@@ -99,6 +109,8 @@ projects:
     archetypes:
       - Analytics Engineering
       - Data Engineering
+    business_problem: "Detecting whale-scale Bitcoin transactions from nested blockchain data with Snowflake flattening, USD valuation, versioned analytical models, and Snowpipe auto-ingestion."
+    transferable_skills: [elt, data modeling, data warehousing, data transformation, incremental loading, data visualization, blockchain analytics, orchestration, data quality, api integration]
     repo_url: "https://github.com/SagarMarthandan/BTC"
     bullets:
       - "dbt pipeline processing Bitcoin transaction data in Snowflake — handles nested blockchain structures, builds whale-detection analytical models, and exposes versioned schemas for downstream BI"
@@ -117,6 +129,8 @@ projects:
     technologies: "Databricks, PySpark, SQL, Delta Lake, ADLS Gen2, Unity Catalog"
     archetypes:
       - Data Engineering
+    business_problem: "Delivering an F1 race analytics dataset through a governed Databricks Medallion pipeline with Unity Catalog, from raw JSON to wins-per-driver Gold marts."
+    transferable_skills: [etl, elt, medallion architecture, data lakehouse, data governance, data transformation, spark engineering, data quality, analytics, cloud data platform]
     repo_url: "https://github.com/SagarMarthandan/Databricks-Mini-Project"
     bullets:
       - "Databricks Medallion Architecture pipeline ingesting Ergast F1 data through Bronze, Silver, and Gold layers with Unity Catalog governance and ADLS Gen2 cloud storage"
@@ -135,6 +149,8 @@ projects:
     archetypes:
       - Data Engineering
       - Analytics Engineering
+    business_problem: "Continuous weather analytics from a live API with 1-minute ingestion, deduplicated dbt staging, daily marts, and Superset dashboards for temperature and wind trends."
+    transferable_skills: [elt, real-time ingestion, orchestration, data modeling, data quality, data visualization, containerization, time-series analysis, analytics]
     repo_url: "https://github.com/SagarMarthandan/E2E-weather-data-report"
     bullets:
       - "End-to-end ELT pipeline ingesting real-time weather data from Weatherstack API, transforming with dbt, and visualizing via Apache Superset dashboards"
@@ -152,6 +168,8 @@ projects:
     technologies: "Apache Kafka, Python, Pandas, Jupyter"
     archetypes:
       - Data Engineering
+    business_problem: "Demonstrating batch vs streaming analytics on FX rates with a Kafka pipeline that turns a static CSV into a live consumer stream with real-time change analytics."
+    transferable_skills: [streaming, real-time data, message queue, producer consumer, batch processing, data pipeline design, real-time analytics, python scripting]
     repo_url: "https://github.com/SagarMarthandan/mini-kafka-stream"
     bullets:
       - "Kafka-driven data pipeline processing Foreign Exchange (FX) rates from static batch CSV files to real-time stream consumers for analytics and monitoring"
@@ -170,6 +188,8 @@ projects:
     archetypes:
       - Data Analyst
       - Analytics Engineering
+    business_problem: "Executive sales and returns analytics for a global cycling retailer with a star-schema Power BI model, DAX time intelligence, growth targets, and What-If pricing scenarios."
+    transferable_skills: [business intelligence, data visualization, dashboarding, data modeling, star schema, kpi tracking, reporting, time intelligence, what-if analysis, data storytelling, self-service bi, sales analytics]
     repo_url: "https://github.com/SagarMarthandan/powerBI---Project"
     bullets:
       - "Power BI dashboard analyzing global Adventure Works cycling equipment sales and returns across 3 continents (North America, Europe, Australia) with star schema modeling and advanced DAX time intelligence"
@@ -188,6 +208,8 @@ projects:
     technologies: "SQL, MySQL, PostgreSQL"
     archetypes:
       - Data Analyst
+    business_problem: "A structured SQL reference covering window functions, CTEs, complex joins, query optimization, and schema design for answering analytical questions efficiently on MySQL and PostgreSQL."
+    transferable_skills: [sql, query optimization, relational databases, data analysis, data modeling, database design, window functions, schema design]
     repo_url: "https://github.com/SagarMarthandan/SQL-Practice"
     bullets:
       - "Structured reference library of SQL patterns and techniques organized from foundational queries to advanced analytical functions, tested across MySQL and PostgreSQL"
@@ -206,6 +228,8 @@ projects:
     archetypes:
       - AI Engineer
       - AI/LLMOps
+    business_problem: "Enabling question answering over dense PDF documents with chunked embeddings into FAISS, semantic retrieval, and LLM-grounded answers under token budget control."
+    transferable_skills: [rag, llm, semantic search, vector database, embeddings, nlp, document parsing, information retrieval, question answering, ai engineering]
     repo_url: "https://github.com/SagarMarthandan/RAG-LLM-pdf-query"
     bullets:
       - "End-to-end Retrieval-Augmented Generation (RAG) pipeline ingesting dense PDF documents into a FAISS vector database with LangChain orchestration and OpenAI LLM for context-grounded question answering"
@@ -224,6 +248,8 @@ projects:
     archetypes:
       - ML Engineering
       - Data Analyst
+    business_problem: "Making dimensionality reduction robust to outliers with a COMAD-based PCA that has a 50% breakdown point, benchmarked for reconstruction error and downstream classification across 7 datasets."
+    transferable_skills: [machine learning, statistical analysis, dimensionality reduction, outlier detection, feature engineering, data science, classification, clustering, evaluation, data visualization]
     repo_url: "https://github.com/SagarMarthandan/PCA-using-Co-Median"
     bullets:
       - "Robust PCA implementation replacing mean-based covariance with Co-Median Absolute Deviation (COMAD) for outlier-resistant dimensionality reduction — maintains data integrity under contamination"
@@ -243,6 +269,8 @@ projects:
       - Agentic/Automation
       - ML Engineering
       - Data Engineering
+    business_problem: "QA automation for an autonomous driving simulation with instrumented cone-detection metrics, W&B experiment tracking, and multi-process Sweeps across a 5-pipeline ROS stack."
+    transferable_skills: [mlops, experiment tracking, hyperparameter tuning, qa automation, automation, simulation, robotics, data visualization, process automation]
     repo_url: ""
     bullets:
       - "University Master Project (CAU Kiel, WiSe 2020/21) — QA framework for RACEYARD autonomous driving simulation: 5 sequential ROS pipelines (Perception, SLAM, Centerline, Driving, Actuation) running in Gazebo with RViz visualization"
@@ -256,40 +284,31 @@ projects:
       - "Collaborated with Lorenz on Docker containerization and process flow documentation — manually traced ROS node logs to produce abstract flow chart documenting all nodes, topics, and values across 5 pipelines"
     keywords: [python, ros, gazebo, weights and biases, wandb, matplotlib, rospy, yaml, hyperparameter tuning, experiment tracking, qa automation, sweeps automation, sensor parameter tuning, simulation pipeline, autonomous driving, robotics, mlops, data visualization]
 
-  - title: "ATS Resume Pipeline Streamlit App"
-    description: "Production-grade Streamlit app automating resume tailoring and ATS optimization via a 6-stage pipeline with LaTeX compilation and LLM integration."
-    technologies: "Streamlit, LaTeX, OpenAI API, PowerShell, Python"
+  - title: "OKF-CV Resume & Cover Letter Tailoring Pipeline"
+    description: "ATS-optimized resume and cover letter pipeline with URL scraping, hybrid search (OKF phrase matching + Zvec semantic embeddings), YAML configs, LaTeX compilation, parse-integrity audits, self-learning keyword enrichment, and a Streamlit web GUI with OpenCode Go LLM streaming."
+    technologies: "Python, LaTeX, PyYAML, ReportLab, Zvec, Sentence-Transformers, pypdf, Jina Reader, Streamlit, OpenAI"
     archetypes:
       - Agentic/Automation
       - Backend/Platform Engineering
-      - Data Engineering
-    repo_url: "https://github.com/SagarMarthandan/ATS-Resume-Streamlit"
+    business_problem: "Automating ATS-optimized application materials with hybrid portfolio search against the JD, tailored resume and cover letter PDF generation, parse-integrity audits, and a Streamlit web GUI."
+    transferable_skills: [automation, ai agents, llm, rag, semantic search, nlp, data pipeline, pdf generation, application development, web gui, api integration, self-learning]
+    repo_url: "https://github.com/SagarMarthandan/okf-cv"
     bullets:
-      - "Production-grade Streamlit app automating resume tailoring and ATS optimization via a strict 6-stage algorithmic workflow calibrated for DACH region and global ATS systems"
-      - "6-stage pipeline: ATS Analysis & Gap Detection (0-100 scoring matrix) → Resume Rewrite (LaTeX mapping) → Cover Letter (Geschäftsbrief format) → PDF Compilation (double-pass pdflatex) → JD Archival → Visual Layout Audit"
-      - "Interactive decision terminal: custom st.session_state state-machine pauses execution at end of Step 1 if ATS score <85% benchmark; retro terminal UI captures user choice (A/B/C) and injects it into Step 2 rewrite strategy"
-      - "OpenCode Go API integration via official OpenAI Python Client: dynamic model discovery from API endpoint; built-in fallback dropdown mapping allowed models (GLM-5.1, GLM-5, Kimi K2.6, DeepSeek V4 Pro, Qwen3.7 Max, etc.)"
-      - "ATS scoring matrix: 4-category German-market calibration (Keywords, Relevance, Tech Stack, Formatting, Soft Skills); auto-detects JD language; extracts requirements from candidate-facing profile segments only"
-      - "Project Swap Directive: Step 1 identifies low-relevance resume projects to drop and selects verified portfolio replacements — maintains target of 3-4 projects total with quantified metrics"
-      - "WinError 123 folder sanitizer: cleans illegal Windows filename characters and strips instructional template text from LLM-generated folder headers; falls back safely to clean directory"
-      - "Drag-and-drop base file uploader with automatic local directory fallback; custom prompt instructions override for pipeline skill files across all steps; synchronized LLM streaming for real-time output rendering"
-    keywords: [python, streamlit, latex, openai api, powershell, automation, llm integration, job application, pdf generation, data pipeline, application development, ats optimization]
-
-  - title: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
-    description: "ATS-optimized resume and cover letter pipeline with URL scraping, LLM-based project ranking, YAML configs, LaTeX compilation, parse-integrity audits, and Obsidian vault sync."
-    technologies: "Python, LaTeX, PyYAML, ReportLab, pypdf, Jina Reader"
-    archetypes:
-      - Agentic/Automation
-      - Backend/Platform Engineering
-    repo_url: "https://github.com/SagarMarthandan/llm-cv"
-    bullets:
-      - "End-to-end ATS-optimized resume and cover letter generation pipeline using structured YAML configs, LLM-based project ranking from a 16-project catalog, and LaTeX compilation with ReportLab fallback"
-      - "LLM-based project ranking: agent reads condensed project catalog YAML (16 projects with bullets, keywords, tech stack, archetypes) and ranks top 6 against the JD — replaces algorithmic phrase matching and semantic embeddings with LLM judgment"
-      - "Optional Step 0 JD scraping: Jina Reader for JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio); heuristic JD-shape validation (role title + company + ≥2 section markers + >200 chars); URL-hash cache with 7-day TTL"
-      - "ATS scoring: 4-category German-market matrix (max 100 points); score gate <85 triggers HOLD with remedy suggestions, ≥85 sets PROCEED; ATS vendor inference from JD text/URL footprints"
-      - "DIN 5008 Form B cover letter: metric-grounded, adapted to formal German business formatting with Anschriftfeld, right-aligned date, bold Betreff, gender-tag stripping (w/m/f/d regex), 250-320 words (180-240 German)"
-      - "Parse-integrity audit: pypdf extracts PDF text layer, checks for Unicode replacement glyphs (U+FFFD), cross-references critical keywords/tools against extracted text; on failure, ReportLab fallback recompiles and re-audits"
-      - "Resume parseability audit: standalone audit on final PDF — Unicode integrity, keyword recovery, section header detection (style-aware: 6 US / 5 German), contact info extraction (5 fields); pass criteria: 100% keyword recovery, all sections, 5/5 contacts, zero corruptions"
-      - "Obsidian vault sync: targeted incremental sync per application — generates linked notes (application, company, role, skill, project, ATS vendor, source) with wikilinks for graph-view navigation; folder sort into Applications/YYYY/MM/DD/ tree"
-      - "Algorithmic monoculture countermeasures: ATS vendor tracking, application source diversification (Cold Apply/Referral/LinkedIn Connection), project verification links, 3 resume variation modes (Balanced/Project-Heavy/Skills-Heavy), render mode choice (LaTeX/ReportLab)"
-    keywords: [python, latex, pyyaml, reportlab, pypdf, jina reader, automation, ai agents, llm, rag, data pipeline, ats optimization, obsidian sync, yaml configuration, pdf generation, parse-integrity audit]
+      - "Hybrid search engine: Google OKF (Open Knowledge Format) 4-layer phrase matching (exact substring, 50+ term synonym map, light stemming, difflib fuzzy at 0.85 threshold) fused with Zvec semantic embeddings (all-MiniLM-L6-v2, 384-dim) for fully offline JD-to-portfolio project ranking"
+      - "Score fusion at 0.6/0.4 weights (OKF phrase + Zvec cosine scaled to OKF range) with Jaccard-style normalization preventing JD-length bias; archetype boosts (+10 primary, +5 secondary); configurable top_k and weights in config.py"
+      - "Embedding daemon: local TCP server (ports 54321-54325) holds the SentenceTransformer model in memory, pre-warmed in Step 1 to eliminate ~70s CPU cold starts across 3 search invocations per run; 30-min idle auto-shutdown with direct-load fallback"
+      - "Cross-process safety for parallel agents: OS-level file locking (msvcrt/fcntl) with infinite wait and 0.5s retry on Zvec DB operations; CPU-bound embedding work runs outside the lock, enabling safe concurrent execution across 10+ agents"
+      - "Self-learning keyword enrichment: okf_learn.py extracts JD-relevant domain terms, appends missing keywords to matched portfolio files (max 3 per run, 15/file cap with linter-enforced rollback), logs every change with pre/post ATS scores to learning_log.json"
+      - "ATS scoring with semantic alignment tracking: 4-category German-market matrix (max 100, <85 HOLD gate with remedy suggestions) plus pre/post-rewrite cosine similarity via resume_jd_similarity.py stored in ATS_Report.yaml"
+      - "Portfolio governance: okf_lint.py frontmatter linter (non-empty fields, canonical archetypes, denylisted tech tokens, keyword quality, repo_url format) with content-hash caching and --force override"
+      - "DIN 5008 Form B cover letter: Anschriftfeld sender line, right-aligned date, bold Betreff, gender-tag stripping (w/m/f/d regex), exactly one page at 250-320 words (180-240 German), metric-grounded"
+      - "Parse-integrity and parseability audits: pypdf text-layer checks for Unicode replacement glyphs (U+FFFD) and keyword recovery; style-aware section headers (6 US / 5 German) and 5/5 contact fields; ReportLab fallback recompile on failure"
+      - "Algorithmic monoculture countermeasures: ATS vendor inference (Workday, Personio, Greenhouse, Lever, Taleo), application source prompts with weak-tie warnings, clickable GitHub verification links, 3 resume variation modes, LaTeX/ReportFallback render choice, weekly diversity audit"
+      - "Obsidian vault sync with Windows file-lock recovery: targeted incremental wikilinked notes (application, company, role, skill, project, ATS vendor, source) for graph navigation; _resilient_move 3-retry folder sort with copytree+rmtree fallback for held handles"
+      - "Streamlit web GUI front-end (streamlit_app.py): the full 6-stage pipeline runs in the browser with live token-streaming output, sidebar configuration, and real-time progress tracking"
+      - "OpenCode Go API integration via the OpenAI client: dynamic model discovery from the /models endpoint with fallback dropdown (GLM, Kimi, DeepSeek, Qwen, MiniMax, Mimo) and custom model override"
+      - "Interactive decision terminal: state-machine pause after Step 1 when the ATS signal is below 85; user A/B/C choice injected into the Step 2 rewrite prompt"
+      - "Drag-and-drop base-file uploaders per language (resume.md + project_info.md) overriding local base files; custom instructions override every default step prompt"
+      - "WinError 123 folder sanitizer stripping invalid Windows filename characters and template placeholders with clean fallback; two-pass pdflatex compilation, PDF download buttons, and markdown preview tabs"
+      - "GPU-portable embedding: the GUI search subprocess runs CPU-forced (CUDA_VISIBLE_DEVICES='') so semantic search survives machines without a torch-compatible CUDA kernel image"
+    keywords: [python, latex, pyyaml, reportlab, zvec, sentence-transformers, pypdf, jina reader, hybrid search, semantic embeddings, okf phrase matching, score fusion, automation, ai agents, llm, rag, semantic search, nlp, data pipeline, ats optimization, obsidian sync, self-learning, embedding daemon, parse-integrity audit, streamlit, web gui, openai api, llm streaming, interactive terminal, drag-and-drop, custom instructions, decision terminal]

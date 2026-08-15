@@ -85,6 +85,8 @@ After scoring and project selection, extract a `skill_gaps` list:
 - Store the result as a flat list of strings under `skill_gaps` in `ATS_Report.yaml`.
 - The agent uses this list during Step 2 to make targeted additions where justified (add to skills section, weave into project descriptions, or note as genuine gaps).
 
+> **ANTI-HALLUCINATION GUARDRAIL — Skill Gaps:** The `skill_gaps` list must contain ONLY skills/technologies explicitly mentioned in the JD text as required or strongly preferred. Do not add skills the model thinks "might be relevant" or "are commonly associated with this role." Every entry must be traceable to a specific phrase in the JD. If unsure whether a skill is required vs. merely mentioned, exclude it from `skill_gaps` (it will still appear in `keyword_inventory` if absent from the resume).
+
 ### 4. Contextual Placement Weighting (P4)
 After the 4-category ATS score is computed, perform a contextual placement check on critical JD keywords:
 - Extract the top critical keywords from the JD (the same keywords used in the `keywords_and_terminology` scoring category).
@@ -112,6 +114,12 @@ Populate each field of `improvement_blueprint` as follows:
 - **`keyword_inventory`:** Extract only JD keywords that are **absent from the base resume** (gap-only approach). Do not list keywords already present. Categorize absences into `hard_skills`, `methodologies`, and `domain_terms`.
 - **`technical_skills_tuning`:** List tools/technologies to add (present in JD, absent from resume skills section) and to remove (present in resume skills section but irrelevant or distracting for this role).
 - **`quantified_outcomes`:** For each metric-free bullet identified in the density audit, suggest a concrete revised version that adds a plausible quantified outcome.
+
+> **ANTI-HALLUCINATION GUARDRAIL — Improvement Blueprint:**
+>
+> - **`project_swap_directive.add_projects`:** Every project name under `add_projects` MUST match a `title` in `okf/project_catalog.yaml` exactly. Do not suggest adding projects that don't exist in the catalog. The `justification` field explains why a real catalog project fits the JD, not why a fabricated project would.
+> - **`quantified_outcomes.suggested`:** Suggested revisions must use metrics that are either (a) already present in the base resume bullet's source material, or (b) derivable from the project catalog bullets. Do not fabricate plausible-sounding numbers (e.g., "reduced latency by 40%") if no such metric exists in the source data. If no metric can be sourced, suggest a qualitative improvement instead (e.g., "add the specific tool name used" or "mention the data volume processed") rather than inventing a number.
+> - **`technical_skills_tuning.add`:** Only list tools/technologies that appear in the JD AND are present in the project catalog or base resume. Do not suggest adding skills the candidate has never used.
 
 ### 6. Job Description Archival & Location Extraction
 - Strip web tracking, cookies, duplicate fields, and metadata from the raw JD.
@@ -227,14 +235,19 @@ After writing `ATS_Report.yaml` and `Job_Description.yaml`, generate the tailore
 
 ### LLM-Based Project Ranking
 
-Read `okf/project_catalog.yaml` (the condensed project catalog with 16 projects, each with 8-10 bullet points, keywords, technologies, archetypes, and repo URL).
+Read `okf/project_catalog.yaml` (the condensed project catalog with 15 projects, each with 8-10 bullet points, keywords, technologies, archetypes, and repo URL).
+
+> **ANTI-HALLUCINATION GUARDRAIL (NON-NEGOTIABLE):**
+>
+> You MUST select ONLY from the 15 projects listed in `okf/project_catalog.yaml`. You MUST NOT invent, create, derive, split, merge, or hallucinate new projects. Every project you rank must map 1:1 to an existing catalog entry by exact `title` match. Do not spin a bullet point or sub-aspect of one catalog project into a separate project — if two catalog projects share a theme (e.g., both involve Power BI + star schema), they are distinct entries but you must not fabricate a third derivative project from their overlapping aspects. The `repo_url` in your output MUST be the exact `repo_url` from the catalog entry — if you find yourself writing a bare profile URL like `https://github.com/SagarMarthandan` (without a specific repo path), you have hallucinated a project and must discard it immediately.
 
 Rank the top 6 most relevant projects for this JD. Consider:
 1. Direct technology/tool overlap with the JD
-2. Transferable competencies (e.g. "data warehousing" transfers between BigQuery and Snowflake)
-3. Role archetype fit (data engineering vs BI vs AI vs analytics)
-4. Project complexity and depth relevant to the role's seniority
-5. Whether the project could be reframed for this role's seniority level
+2. Transferable competencies (e.g. "data warehousing" transfers between BigQuery and Snowflake) — use each project's `transferable_skills` field as the primary signal here
+3. Business-problem match — use each project's `business_problem` field to judge whether the project solves problems similar to the JD's responsibilities
+4. Role archetype fit (data engineering vs BI vs AI vs analytics)
+5. Project complexity and depth relevant to the role's seniority
+6. Whether the project could be reframed for this role's seniority level
 
 Write `project_info.md` in the application folder with the following format per project:
 
@@ -243,6 +256,7 @@ Write `project_info.md` in the application folder with the following format per 
 
 # [Project Title]
 [Description from catalog]
+Problem: [business_problem from catalog]
 Tech: [technologies from catalog]
 Archetypes: [archetypes from catalog]
 Repo: [repo_url from catalog]
@@ -251,6 +265,21 @@ Repo: [repo_url from catalog]
 ```
 
 Repeat for all 6 ranked projects. Step 2 ignores HTML comments, so the `<!-- LLM Rank -->` line is transparent to the resume rewrite.
+
+### Post-Ranking Validation (MANDATORY)
+
+After writing `project_info.md`, verify every project title against the catalog:
+
+```bash
+/home/sagar/Skills/llm-cv/.venv/bin/python -c "
+import yaml
+with open('/home/sagar/Skills/llm-cv/okf/project_catalog.yaml') as f:
+    catalog = {p['title'] for p in yaml.safe_load(f)['projects']}
+print('Catalog projects:', len(catalog))
+"
+```
+
+Cross-check each `# [Project Title]` heading in `project_info.md` against the catalog title set. If any title does not match exactly, you have hallucinated a project — remove it and replace it with the next-best real catalog project that was not already selected. Re-run this check until all 6 titles match catalog entries.
 
 ### Compilation Commands
 

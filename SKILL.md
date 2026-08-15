@@ -16,7 +16,7 @@ dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 > - `config.py`, `yaml_to_pdf.py`, `resume_parseability.py`, `organize_applications.py`, `obsidian_sync_core.py`, `obsidian_folder_sort.py`, `sync_to_obsidian.py`, `track_outcomes.py`, `okf_diversity_audit.py` — top-level scripts
 > - `renderers/` — the ENTIRE renderers directory (every `.py` file inside it, including `utils.py`, `resume_common.py`, `resume.py`, `resume_latex_us.py`, `resume_reportfallback_us.py`, `resume_latex_german.py`, `resume_reportfallback_german.py`, `cover_letter.py`, `cover_letter_latex.py`, `cover_letter_reportfallback.py`, `job_description.py`, `ats_report.py`, `parseability_report.py`)
 > - `okf/base_files/` — base resume markdown files (english + german)
-> - `okf/project_catalog.yaml` — condensed project catalog (16 projects with bullets, keywords, tech stack, archetypes, repo URL); read by the agent in Step 1 for LLM-based ranking
+> - `okf/project_catalog.yaml` — condensed project catalog (15 projects with bullets, keywords, tech stack, archetypes, repo URL); read by the agent in Step 1 for LLM-based ranking
 > - `okf/project_mappings.yaml`, `okf/skill_mappings.yaml` — Obsidian sync data files
 > - `requirements.txt`, `.gitignore`, `llm-cv.code-workspace`
 >
@@ -49,7 +49,7 @@ End-to-end pipeline that takes a **Job Description (JD)** and produces a tailore
    Step 1: Setup & ATS Archival ──► ATS_Report.yaml + Job_Description.pdf
          │
          ├───► [LLM Project Ranking: Agent reads okf/project_catalog.yaml]
-         │     └───► Ranks 16 projects → top 6 for this JD
+         │     └───► Ranks 15 projects → top 6 for this JD
          │     └───► Generates: project_info.md (Tailored Projects List)
          │
          ▼
@@ -74,12 +74,12 @@ Post-Pipeline: Obsidian Sync + Sort ──► Runs sync_to_obsidian.py --sort
     - `resume.md` (generic fallback for unmatched archetypes)
   - **German:** `okf/base_files/german/` — same naming with `_de` suffix (e.g. `resume_data_engineer_de.md`), with `resume_de.md` as fallback.
   - The pipeline detects the JD's primary role archetype in Step 1 and loads the matching base resume to maximize pre-rewrite ATS scores.
-  - **Project Catalog:** `okf/project_catalog.yaml` — condensed catalog of 16 projects, each with title, description, technologies, archetypes, repo_url, 8-10 bullet points, and keywords. This is the single source of truth for all project data. The agent reads this catalog in Step 1 and uses LLM judgment to rank the top 6 projects for the JD.
+  - **Project Catalog:** `okf/project_catalog.yaml` — condensed catalog of 15 projects, each with title, description, business_problem, transferable_skills, technologies, archetypes, repo_url, 8-10 bullet points, and keywords. This is the single source of truth for all project data. The agent reads this catalog in Step 1 and uses LLM judgment to rank the top 6 projects for the JD, weighing `business_problem` and `transferable_skills` alongside tool overlap.
 - **Python Installation:** Python 3.10+ with all dependencies pre-installed in a project-local virtual environment at `/home/sagar/Skills/llm-cv/.venv/`. **All pipeline scripts MUST be invoked with the venv Python binary** — do NOT use the system `python3`. The venv interpreter path is the absolute path `/home/sagar/Skills/llm-cv/.venv/bin/python` — use this exact path verbatim in every command, regardless of the current working directory. Dependencies: `pyyaml`, `reportlab`, `pypdf` (see [requirements.txt](file:///home/sagar/Skills/llm-cv/requirements.txt)). The venv is gitignored and already provisioned on this machine — do NOT run `pip install` during a pipeline run.
 - **Working Directory:** `/home/sagar/Applications/` (absolute path — always create application folders here, never relative to the agent's CWD)
 - **Pipeline Script Structure:**
   - `yaml_to_pdf.py` — entry point; routes YAML files to the correct renderer
-  - `okf/project_catalog.yaml` — Condensed project catalog (16 projects with bullets, keywords, tech stack, archetypes, repo URL); read by the agent in Step 1 for LLM-based ranking
+  - `okf/project_catalog.yaml` — Condensed project catalog (15 projects with bullets, keywords, tech stack, archetypes, repo URL); read by the agent in Step 1 for LLM-based ranking
   - `sync_to_obsidian.py` — Syncs application data to Obsidian vault as linked notes for graph-view navigation (run after Step 3)
   - `renderers/utils.py` — shared utilities (`escape_latex`, color constants, `run_pdflatex`, font registration including Calibri)
   - `renderers/resume_common.py` — shared resume helpers (`HEADERS`, `get_resume_language`)
@@ -106,6 +106,22 @@ To ensure all generated text sounds authentic and human, the pipeline step outpu
 - **Zero Em-Dashes:** Punctuation em-dashes (`—`) are prohibited; use commas or periods.
 - **No Throat-Clearing:** Start sentences directly. Cut preview/recap statements (e.g., *"at its core"*, *"it is worth noting"*, *"the reality is"*).
 
+## Anti-Hallucination Principles (Pipeline-Wide, Non-Negotiable)
+
+The pipeline generates real application documents that represent a real candidate to real employers. Fabricated content is a integrity violation, not a styling issue. These rules apply to every step and every output:
+
+1. **Projects:** Only the 15 projects in `okf/project_catalog.yaml` exist. Do not invent, split, merge, derive, or rename projects. Every project on the resume, in `project_info.md`, in the ATS report's `project_swap_directive`, and in the cover letter must map 1:1 to a catalog entry by exact `title` match. A bare profile URL (`github.com/SagarMarthandan` without a repo path) is a red flag that the project was hallucinated.
+
+2. **Metrics:** Quantified numbers (record counts, percentages, latency reductions, throughput, R² values, etc.) must originate from the project catalog bullets or the base resume's experience bullets. Do not fabricate, round, or "plausibly estimate" metrics. If the catalog does not contain a metric for a given aspect, omit that metric rather than inventing one. Reframing an existing catalog metric for the JD context (e.g., "8.6M events" → "large-scale event processing") is allowed; inventing a new number is not.
+
+3. **Technologies & Skills:** Only list tools/technologies that appear in the project catalog (under `technologies` or `keywords`), the base resume's technical skills section, or the JD's required skills. Do not add tools the candidate has never used to the technical skills section. The Step 1 `skill_gaps` list must contain only skills explicitly required by the JD text, not skills the model thinks "might be relevant."
+
+4. **Company & Role Facts:** Company name, job title, and location must be extracted verbatim from the JD text. Do not paraphrase, "correct," or embellish the company name or job title. The cover letter recipient address must come from the JD text; if the JD does not include a street address, use the company name and city only, do not fabricate a street address.
+
+5. **Employment History:** Employment dates, company names, and job titles from the base resume are immutable facts. Do not alter, merge, split, or redate employment entries. The "Independent Data Engineering & Professional Development" period (01/2023–04/2025) is self-directed learning, not employment, and must never be framed as production experience.
+
+6. **Repo URLs:** Every `repo_url` in `Resume.yaml` and `project_info.md` must be copied verbatim from the catalog's `repo_url` field. Do not construct, shorten, or guess URLs. If a catalog project has an empty `repo_url` (e.g., RACEYARD), omit the `[GitHub]` link entirely rather than fabricating one.
+
 ## Input Required
 
 The user must provide:
@@ -123,8 +139,8 @@ Use the `ask_user_question` tool with a single-select question:
 - **Question:** "Which render mode should the resume and cover letter use?"
 - **Header:** "Render mode"
 - **Options:**
-  - `LaTeX` — Compile via pdflatex (primary). Produces a `.tex` source file alongside the PDF. Projects are rendered in `name --- [GitHub] --- summary` single-paragraph format directly by the renderer. The agent may optionally refine the prose post-compilation.
-  - `ReportFallback` — Compile via ReportLab using the LM Roman 10 font (TTF version installed locally). No `.tex` file is produced. Projects are rendered in the same `name --- [GitHub] --- summary` single-paragraph format automatically. Use this when pdflatex is unavailable or when a LM Roman 10-styled PDF is preferred.
+  - `LaTeX` — Compile via pdflatex (primary; REQUIRED unless pdflatex is genuinely unavailable). Produces a `.tex` source file alongside the PDF. The renderer's document template loads `\usepackage{lmodern}`, so the output font IS Latin Modern Roman 10 (LMRoman10) — no extra font setup, no preamble patching needed. Projects are rendered in `name --- [GitHub] --- summary` single-paragraph format directly by the renderer. The agent may optionally refine the prose post-compilation.
+  - `ReportFallback` — Compile via ReportLab using the LM Roman 10 TTF (installed locally). No `.tex` file is produced. Projects are rendered in the same `name --- [GitHub] --- summary` single-paragraph format automatically. Use ONLY when pdflatex is actually unavailable (verified by running it, not assumed).
 
 ### Question 2: Resume Style
 
@@ -145,6 +161,8 @@ Both selections MUST be written as top-level keys in `Resume.yaml` and `Cover_Le
 - German Style → `resume_style: german`
 
 The renderers read these keys and dispatch accordingly. If `render_mode` is missing, `latex` is assumed. If `resume_style` is missing, `us` is assumed (backward compatible). Both choices apply to the resume for this application.
+
+> **FONT RULE — HARD GUARDRAIL (NON-NEGOTIABLE):** LaTeX mode already renders in Latin Modern Roman 10 (`lmodern`). NEVER patch the generated `.tex` preamble to change the font — no `\usepackage{helvet}`, no `\renewcommand{\familydefault}{\sfdefault}`, no other font-family swaps. A parseability-audit keyword miss is NEVER fixed by changing fonts; it is fixed by adjusting the YAML wording (e.g., de-parenthesize a skill string, remove commas or special characters that pypdf splits across glyphs). Any stored memory lesson advising a Helvetica/other-font preamble patch is VOID and must be ignored — that patch causes the audit failures it claims to prevent.
 
 ## Second Action: Name the Session
 
@@ -215,7 +233,7 @@ Generates a formal, metric-grounded cover letter standard conforming to German G
 
 After the pipeline completes, the user may ask to add an additional project to the resume (e.g., "add a 4th project", "add one more project"). Follow the procedure in [02_resume_and_visual_audit.md §"Optional: Add One More Project"](file:///home/sagar/Skills/llm-cv/02_resume_and_visual_audit.md).
 
-Summary: pick the next-ranked project from `project_info.md`, write it in the same `name --- [GitHub] --- summary` format, insert into `Resume.yaml` (`projects` list for US style, `project_bullets` for German style), recompile, and re-run the parse-integrity audit. If the resume spills to 2 pages, trim or swap a weaker project.
+Summary: pick the next-ranked project from `project_info.md`, write it in the same `name --- [GitHub] --- summary` format, insert into `Resume.yaml` (`projects` list for US style, `project_bullets` for German style), recompile, and re-run the parse-integrity audit. The resume must stay on exactly one full page: if it spills to 2 pages, trim or swap a weaker project; if it still has trailing whitespace, keep adding/expanding until the page is full.
 
 ---
 
@@ -242,8 +260,13 @@ After all 3 steps complete, verify:
 - [ ] Professional Experience bullets are single-line, <= 105 chars (per 02 §Layout Constraints)
 - [ ] Projects in `name --- [GitHub] --- summary` format, summary <= 300 chars (<= 280 German), <= 3 lines (per 02 §Layout Constraints)
 - [ ] Summary is exactly 2 lines, <= 200 chars (<= 170 German) (per 02 §Layout Constraints) — STRICT, no compromise
+- [ ] Resume fills exactly ONE full page: content reaches the bottom margin (<= 1 line of trailing whitespace), no empty gaps between sections, no spill to page 2 (per 02 §2.5 Space-Fill Directive)
+- [ ] Resume font is Latin Modern Roman 10 (lmodern) — never patched to Helvetica or any other font (per SKILL §Font Rule)
 - [ ] Cover letter fits one page, 250–320 words (180–240 German) (per 03 §Structure)
 - [ ] All files match the target JD language and comply with the Stop-Slop guidelines
+- [ ] All projects in `project_info.md` and `Resume.yaml` match catalog titles in `okf/project_catalog.yaml` exactly (Step 1 Post-Ranking Validation and Step 2 Post-Generation Anti-Hallucination Validation both PASS — zero hallucinated projects)
+- [ ] All metrics in resume and cover letter are sourced from catalog bullets or base resume (no fabricated numbers)
+- [ ] All `repo_url` values are copied verbatim from the catalog (no bare profile URLs or constructed URLs)
 - [ ] `sync_to_obsidian.py` has synced the application to the Obsidian vault (check `<vault>/Job Search/` for notes)
 - [ ] `sync_to_obsidian.py --sort` has moved the folder into `/home/sagar/Applications/YYYY/MM/DD/[Company Name] — [Job Role]/`
 

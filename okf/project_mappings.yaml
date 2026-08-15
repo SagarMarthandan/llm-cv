@@ -53,27 +53,17 @@ rules:
   - keywords: ["cloud", "data", "analytics", "nyc"]
     canonical: "NYC Taxi Analytics Pipeline"
 
-  # --- LLM-CV Resume Tailoring ---
-  - keywords: ["llm-cv", "resume"]
-    canonical: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
+  # --- OKF-CV Resume Tailoring ---
+  - keywords: ["okf-cv", "resume"]
+    canonical: "OKF-CV Resume & Cover Letter Tailoring Pipeline"
   - keywords: ["okf", "cv", "tailoring"]
-    canonical: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
-  - keywords: ["llm-cv", "tailoring"]
-    canonical: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
+    canonical: "OKF-CV Resume & Cover Letter Tailoring Pipeline"
+  - keywords: ["okf-cv", "tailoring"]
+    canonical: "OKF-CV Resume & Cover Letter Tailoring Pipeline"
   - keywords: ["resume", "cover", "letter", "tailoring"]
-    canonical: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
+    canonical: "OKF-CV Resume & Cover Letter Tailoring Pipeline"
   - keywords: ["resume", "cover", "letter", "pipeline"]
-    canonical: "LLM-CV Resume & Cover Letter Tailoring Pipeline"
-
-  # --- ATS Resume Pipeline ---
-  - keywords: ["ats", "resume", "pipeline"]
-    canonical: "ATS Resume Pipeline Streamlit App"
-  - keywords: ["ats", "streamlit"]
-    canonical: "ATS Resume Pipeline Streamlit App"
-  - keywords: ["ai", "resume", "pipeline"]
-    canonical: "ATS Resume Pipeline Streamlit App"
-  - keywords: ["resume", "pipeline", "streamlit"]
-    canonical: "ATS Resume Pipeline Streamlit App"
+    canonical: "OKF-CV Resume & Cover Letter Tailoring Pipeline"
 
   # --- Star Schema / Enterprise Sales (same project as Adventure Works dashboard) ---
   - keywords: ["star schema", "sales"]

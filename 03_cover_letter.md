@@ -33,6 +33,8 @@ Generate a formal, high-impact cover letter in YAML (`Cover_Letter.yaml`) ground
 - Formal Geschäftsbrief layout:
   - **Sender Block:** Name, address (set to `closest_candidate_location` read from `ATS_Report.yaml` in Step 1), phone, email.
   - **Recipient Block:** Company name, hiring team, company address.
+
+> **ANTI-HALLUCINATION GUARDRAIL — Recipient Block:** The `recipient.company` must be copied from `Job_Description.yaml`'s `company` field. The `recipient.address` must be extracted from the JD text only. If the JD does not include a street address, use the company name and city only — do not fabricate a street address. The `subject` line must use the exact job title from `Job_Description.yaml`'s `position` field.
   - **Date (Right-Aligned):** Closest city (read from `closest_candidate_location` in `ATS_Report.yaml` in Step 1), date (e.g., "Frankfurt, 30. Mai 2026" or "Kiel, 30. Mai 2026").
   - **Subject Line:** Bold, single line (e.g., "Bewerbung als [Title]").
   - **Opening Salutation:** Formal addressing of team/manager.
@@ -49,6 +51,8 @@ Generate a formal, high-impact cover letter in YAML (`Cover_Letter.yaml`) ground
   - Link to full GitHub project portfolio.
 - **Archetype-Conditional Content:** Only mention active work with local LLMs, RAG, and LangGraph architectures when `role_archetype.primary` (or `secondary`) in `ATS_Report.yaml` is one of: AI Engineer, AI Data Engineer, AI/LLMOps, ML Engineering, Agentic/Automation, or Data Engineering with an explicit AI/ML JD requirement. For Data Analyst, Business Analyst, Analytics Engineer, or other non-AI archetypes, omit this entirely — it reads as an irrelevant non-sequitur bolted onto a business-facing pitch and dilutes the letter's focus on what the role actually needs.
 - **Project Verification References:** Do NOT insert raw `repo_url` links (URLs) into the cover letter prose. Instead, refer to GitHub in plain language — e.g., "the code for this project is on my GitHub" or "see my GitHub for the full implementation." A single generic reference to your GitHub portfolio is sufficient; do not link individual repositories.
+
+> **ANTI-HALLUCINATION GUARDRAIL — Cover Letter Metrics & Projects:** Any project metric cited in the cover letter (record counts, percentages, R² values, throughput, etc.) must originate from the project catalog bullets in `project_info.md` or `okf/project_catalog.yaml`. Do not fabricate or "plausibly estimate" numbers. Project names referenced in the cover letter must match catalog titles exactly. Do not invent projects that don't exist in the catalog. The cover letter may reframe existing catalog metrics for the JD context but must not create new ones. If a paragraph needs a metric and none exists in the catalog for that project, reference a qualitative outcome instead (e.g., "processed large-scale event data" rather than inventing a number).
 - **Application Source Integration:** If `application_source` in `ATS_Report.yaml` is `Referral` or `LinkedIn Connection`, mention the `weak_tie_contact` name/role in paragraph 1 as the connection that brought the opportunity to your attention.
 
 ## Output Target & Directory Structure
