@@ -8,6 +8,7 @@ projects:
       - Backend/Platform Engineering
       - AI Engineer
     business_problem: "Correlating city crime patterns with bike-share ridership to test whether crime near stations affects usage, across 8.6M crime events and 50M+ trips with a BigQuery ML regression."
+    key_metrics: "8.6M crime events + 50M+ Divvy trips; BigQuery ML R²=0.434, Pearson r=+0.20 across 1.46M station-days; 97.8% bytes saved via partition pruning; 84 dbt tests; 12-service Docker stack; 11+8 Grafana panels"
     transferable_skills: ["etl", "elt", "data warehousing", "data pipeline", "data modeling", "orchestration", "data quality", "streaming", "batch processing", "cloud data warehouse", "data architecture", "data ingestion", "data transformation", "analytics", "machine learning", "stream processing", "cloud infrastructure", "ci/cd", "observability", "geospatial analysis", "real-time data"]
     repo_url: "https://github.com/SagarMarthandan/chicago-data-pipeline"
     bullets:
@@ -31,6 +32,7 @@ projects:
       - Analytics Engineering
       - Backend/Platform Engineering
     business_problem: "Providing a governed NYC taxi trip analytics foundation on GCP with terraformed infrastructure, Airbyte ingestion, dbt star-schema marts, and quality-gated CI/CD for monthly fare, route, and demand analysis."
+    key_metrics: "Monthly NYC Taxi Trip Records (2025) dataset; 4 analytics marts (monthly summary, route performance, payment breakdown, hourly demand); star schema with 3 dimension tables + fact_trips"
     transferable_skills: ["etl", "elt", "data pipeline", "data warehousing", "data modeling", "orchestration", "data quality", "cloud data warehouse", "data engineering", "python", "sql", "analytics", "infrastructure as code", "ci/cd", "star schema", "cloud data platform", "containerization"]
     repo_url: "https://github.com/SagarMarthandan/NYC-Bigquery"
     bullets:
@@ -51,6 +53,7 @@ projects:
       - Data Engineering
       - Analytics Engineering
     business_problem: "Turning YouTube channel analytics into a queryable, quality-gated warehouse with API extraction, drift-aware staging synchronization, core transformations, and Soda integrity checks on every run."
+    key_metrics: "3-DAG Airflow orchestration (produce_json, update_db, data_quality); batch-50 YouTube Data API v3 queries for quota efficiency; Shorts <=60s vs Normal >60s classification"
     transferable_skills: ["etl", "elt", "data pipeline", "data warehousing", "data modeling", "orchestration", "data quality", "data engineering", "python", "sql", "analytics", "containerization", "ci/cd", "api integration", "incremental loading", "data pipeline design"]
     repo_url: "https://github.com/SagarMarthandan/Youtube_E2E_DE"
     bullets:
@@ -70,6 +73,7 @@ projects:
     archetypes:
       - Data Engineering
     business_problem: "Building a Formula 1 analytics platform on Azure with Medallion-architecture ingestion of Ergast datasets, ADF orchestration, Databricks transformations, and Delta Lake ACID guarantees."
+    key_metrics: "8 entity notebooks (circuits, constructors, drivers, races, results, pit_stops, lap_times, qualifying) through Bronze->Silver->Gold; Delta Lake ACID upserts; service principal + Key Vault auth"
     transferable_skills: ["etl", "elt", "data pipeline", "data ingestion", "data transformation", "data engineering", "python", "sql", "orchestration", "cloud data warehouse", "medallion architecture", "data lakehouse", "cloud infrastructure", "data governance", "incremental loading", "spark engineering", "data quality"]
     repo_url: "https://github.com/SagarMarthandan/F1-AzureDatabricks"
     bullets:
@@ -90,6 +94,7 @@ projects:
       - Data Engineering
       - Analytics Engineering
     business_problem: "Transforming raw Airbnb listings, hosts, and reviews into analytics-ready marts on Snowflake with SCD Type 2 history, incremental facts, and dbt-expectations quality checks."
+    key_metrics: "SCD Type 2 snapshots (timestamp strategy, dbt_valid_from/to); incremental fct_reviews fact reducing Snowflake compute; 3 dimension models + 1 fact + full-moon review mart"
     transferable_skills: ["elt", "data modeling", "data warehouse", "data transformation", "data quality", "data engineering", "python", "sql", "orchestration", "incremental loading", "data warehousing", "scd type 2", "analytics", "business intelligence", "data marts"]
     repo_url: "https://github.com/SagarMarthandan/DBT-Airbnb-Practice-Project"
     bullets:
@@ -110,6 +115,7 @@ projects:
       - Analytics Engineering
       - Data Engineering
     business_problem: "Detecting whale-scale Bitcoin transactions from nested blockchain data with Snowflake flattening, USD valuation, versioned analytical models, and Snowpipe auto-ingestion."
+    key_metrics: "Whale detection filters outputs >10 BTC; whale_top_10 ranks highest-volume addresses; whale_alerts v1/v2 model versioning; Snowpipe auto-ingestion via SQS"
     transferable_skills: ["elt", "data modeling", "data warehouse", "data transformation", "data engineering", "python", "sql", "data quality", "data visualization", "data warehousing", "incremental loading", "blockchain analytics", "orchestration", "api integration"]
     repo_url: "https://github.com/SagarMarthandan/BTC"
     bullets:
@@ -130,6 +136,7 @@ projects:
     archetypes:
       - Data Engineering
     business_problem: "Delivering an F1 race analytics dataset through a governed Databricks Medallion pipeline with Unity Catalog, from raw JSON to wins-per-driver Gold marts."
+    key_metrics: "Bronze->Silver->Gold Medallion layers; driver_wins Gold mart (wins per driver); Unity Catalog formula1_dev with 3 schemas"
     transferable_skills: ["etl", "data pipeline", "data engineering", "python", "sql", "data transformation", "medallion architecture", "data governance", "elt", "data lakehouse", "spark engineering", "data quality", "analytics", "cloud data platform"]
     repo_url: "https://github.com/SagarMarthandan/Databricks-Mini-Project"
     bullets:
@@ -150,6 +157,7 @@ projects:
       - Data Engineering
       - Analytics Engineering
     business_problem: "Continuous weather analytics from a live API with 1-minute ingestion, deduplicated dbt staging, daily marts, and Superset dashboards for temperature and wind trends."
+    key_metrics: "1-minute Airflow polling schedule; ingest-then-transform policy; daily-grain mart materialized as table for fast Superset queries"
     transferable_skills: ["etl", "elt", "data pipeline", "data engineering", "python", "sql", "orchestration", "data visualization", "analytics", "containerization", "real-time ingestion", "data modeling", "data quality", "time-series analysis"]
     repo_url: "https://github.com/SagarMarthandan/E2E-weather-data-report"
     bullets:
@@ -169,6 +177,7 @@ projects:
     archetypes:
       - Data Engineering
     business_problem: "Demonstrating batch vs streaming analytics on FX rates with a Kafka pipeline that turns a static CSV into a live consumer stream with real-time change analytics."
+    key_metrics: "1-second inter-message producer delay; single-partition topic on localhost:9092; real-time % change vs previous day 5 PM rate"
     transferable_skills: ["streaming", "real-time", "data pipeline", "data engineering", "python", "batch processing", "real-time data", "message queue", "producer consumer", "data pipeline design", "real-time analytics", "python scripting"]
     repo_url: "https://github.com/SagarMarthandan/mini-kafka-stream"
     bullets:
@@ -189,6 +198,7 @@ projects:
       - Data Analyst
       - Analytics Engineering
     business_problem: "Executive sales and returns analytics for a global cycling retailer with a star-schema Power BI model, DAX time intelligence, growth targets, and What-If pricing scenarios."
+    key_metrics: "110% growth targets (revenue/orders); 3 fact + 4 dimension tables; What-If price adjustments (e.g., +5%); 90-day rolling profit + 10-day rolling revenue via DAX"
     transferable_skills: ["data visualization", "dashboard", "business intelligence", "data analyst", "bi", "reporting", "kpi tracking", "business analytics", "data storytelling", "self-service bi", "trend analysis", "etl", "sql", "data modeling", "star schema", "dashboarding", "time intelligence", "what-if analysis", "sales analytics"]
     repo_url: "https://github.com/SagarMarthandan/powerBI---Project"
     bullets:
@@ -209,6 +219,7 @@ projects:
     archetypes:
       - Data Analyst
     business_problem: "A structured SQL reference covering window functions, CTEs, complex joins, query optimization, and schema design for answering analytical questions efficiently on MySQL and PostgreSQL."
+    key_metrics: "7 SQL pattern categories (window functions, joins, CTEs, optimization, schema design, aggregates, cross-database) on MySQL + PostgreSQL"
     transferable_skills: ["sql", "window functions", "data modeling", "query optimization", "database design", "data analysis", "relational databases", "schema design"]
     repo_url: "https://github.com/SagarMarthandan/SQL-Practice"
     bullets:
@@ -229,6 +240,7 @@ projects:
       - AI Engineer
       - AI/LLMOps
     business_problem: "Enabling question answering over dense PDF documents with chunked embeddings into FAISS, semantic retrieval, and LLM-grounded answers under token budget control."
+    key_metrics: "FAISS IndexFlatL2 sub-millisecond query latency; 1000-char chunks with 200-char overlap; text-embedding-ada-002; token budget control via TikToken"
     transferable_skills: ["rag", "llm", "ai", "python", "retrieval", "nlp", "machine learning", "semantic search", "vector database", "embeddings", "document parsing", "information retrieval", "question answering", "ai engineering"]
     repo_url: "https://github.com/SagarMarthandan/RAG-LLM-pdf-query"
     bullets:
@@ -249,6 +261,7 @@ projects:
       - ML Engineering
       - Data Analyst
     business_problem: "Making dimensionality reduction robust to outliers with a COMAD-based PCA that has a 50% breakdown point, benchmarked for reconstruction error and downstream classification across 7 datasets."
+    key_metrics: "50% breakdown point vs 0% for standard deviation; k ~ 1.4826 MAD scaling; benchmarked across 7 datasets; Frobenius-norm reconstruction error; KNN/SVM/RF + K-Means evaluation"
     transferable_skills: ["machine learning", "python", "data analysis", "statistical analysis", "feature engineering", "data science", "data visualization", "dimensionality reduction", "outlier detection", "classification", "clustering", "evaluation"]
     repo_url: "https://github.com/SagarMarthandan/PCA-using-Co-Median"
     bullets:
@@ -270,6 +283,7 @@ projects:
       - ML Engineering
       - Data Engineering
     business_problem: "QA automation for an autonomous driving simulation with instrumented cone-detection metrics, W&B experiment tracking, and multi-process Sweeps across a 5-pipeline ROS stack."
+    key_metrics: "5 sequential ROS pipelines (Perception, SLAM, Centerline, Driving, Actuation); 14 concurrent ROS nodes under Sweeps; 5-minute hard timer; 3 W&B reports (Camera, LiDAR, SLAM)"
     transferable_skills: ["python", "automation", "experiment tracking", "hyperparameter tuning", "qa automation", "mlops", "data visualization", "simulation", "robotics", "process automation"]
     repo_url: ""
     bullets:
@@ -291,6 +305,7 @@ projects:
       - Agentic/Automation
       - Backend/Platform Engineering
     business_problem: "Automating ATS-optimized application materials with hybrid portfolio search against the JD, tailored resume and cover letter PDF generation, parse-integrity audits, and a Streamlit web GUI."
+    key_metrics: "Hybrid score fusion 0.6/0.4 (OKF + Zvec, 384-dim all-MiniLM-L6-v2); 50+ synonym map, 0.85 fuzzy threshold; embedding daemon eliminates ~70s CPU cold start (3 invocations/run); 10+ parallel agents via cross-process locking"
     transferable_skills: ["python", "automation", "ai agents", "llm", "rag", "data pipeline", "semantic search", "nlp", "pdf generation", "application development", "web gui", "api integration", "self-learning"]
     repo_url: "https://github.com/SagarMarthandan/okf-cv"
     bullets:

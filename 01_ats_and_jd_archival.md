@@ -118,7 +118,7 @@ Populate each field of `improvement_blueprint` as follows:
 > **ANTI-HALLUCINATION GUARDRAIL — Improvement Blueprint:**
 >
 > - **`project_swap_directive.add_projects`:** Every project name under `add_projects` MUST match a `title` in `okf/project_catalog.yaml` exactly. Do not suggest adding projects that don't exist in the catalog. The `justification` field explains why a real catalog project fits the JD, not why a fabricated project would.
-> - **`quantified_outcomes.suggested`:** Suggested revisions must use metrics that are either (a) already present in the base resume bullet's source material, or (b) derivable from the project catalog bullets. Do not fabricate plausible-sounding numbers (e.g., "reduced latency by 40%") if no such metric exists in the source data. If no metric can be sourced, suggest a qualitative improvement instead (e.g., "add the specific tool name used" or "mention the data volume processed") rather than inventing a number.
+> - **`quantified_outcomes.suggested`:** Suggested revisions must use metrics that are either (a) already present in the base resume bullet's source material, or (b) verbatim from the catalog's `key_metrics` field, or (c) derivable from the project catalog bullets. Do not fabricate plausible-sounding numbers (e.g., "reduced latency by 40%") if no such metric exists in the source data. If no metric can be sourced, suggest a qualitative improvement instead (e.g., "add the specific tool name used" or "mention the data volume processed") rather than inventing a number.
 > - **`technical_skills_tuning.add`:** Only list tools/technologies that appear in the JD AND are present in the project catalog or base resume. Do not suggest adding skills the candidate has never used.
 
 ### 6. Job Description Archival & Location Extraction
@@ -257,6 +257,7 @@ Write `project_info.md` in the application folder with the following format per 
 # [Project Title]
 [Description from catalog]
 Problem: [business_problem from catalog]
+Metrics: [key_metrics from catalog — cite verbatim, never invent beyond it]
 Tech: [technologies from catalog]
 Archetypes: [archetypes from catalog]
 Repo: [repo_url from catalog]
