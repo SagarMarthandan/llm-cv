@@ -14,17 +14,19 @@ Data professional with an M.Sc. in Computer Science and enterprise-grade product
 
 **TECHNICAL SKILLS**
 
-**AI & ML:** Generative AI · Agentic AI · RAG (Retrieval-Augmented Generation) · LangChain · LangGraph · FAISS · Ollama · Qwen · Prompt Engineering · OpenAI API · HuggingFace (familiar)
+**AI & ML:** Generative AI · Agentic AI · RAG · LangChain · LangGraph · FAISS · Ollama · Qwen · OpenAI API · HuggingFace · Prompt Engineering · scikit-learn · BigQuery ML · SciPy
 
-**Programming & Query Languages:** Python · SQL · Advanced SQL (CTEs, Window Functions, Joins) · PySpark · Spark SQL · Jinja
+**Programming & Query Languages:** Python · SQL · Advanced SQL (CTEs, Window Functions, Joins) · PySpark · Spark SQL · Jinja · pandas · NumPy
 
-**Data Engineering & Transformation:** dbt · Apache Airflow · Dagster · Airbyte · ELT/ETL · Incremental Modeling · SCD Type 2 · Dimensional Modeling · Medallion Architecture
+**Data Engineering & Transformation:** dbt (Core & Cloud) · Apache Airflow · Dagster · Airbyte · ELT/ETL · Incremental Modeling · SCD Type 2 · Medallion Architecture · Dimensional Modeling · Star Schema · Kimball · Delta Lake · dlt
 
-**Cloud, Warehousing & Platforms:** GCP (BigQuery, IAM) · AWS (S3, EC2, IAM) · Azure (Databricks, Data Factory, ADLS Gen2) · Snowflake · PostgreSQL · Docker · Terraform (IaC)
+**Cloud, Warehousing & Platforms:** GCP (BigQuery, IAM) · AWS (S3, EC2, IAM) · Azure (Databricks, Data Factory, ADLS Gen2) · Snowflake · PostgreSQL · MySQL · Docker · Terraform · Unity Catalog · Microsoft Fabric
 
-**Data Quality, Governance & CI/CD:** dbt Tests · Soda Core · GitHub Actions · RBAC · Data Governance · Data Lineage · Monitoring & Alerting
+**BI & Visualization:** Power BI · DAX · Power Query (M) · Apache Superset · Looker Studio · Tableau (familiar) · Plotly · Matplotlib · Seaborn · Microsoft Excel
 
-**Streaming & Distributed Systems:** Apache Kafka · Redis · REST APIs · JSON/HTML/PDF parsing
+**Data Quality, Governance & CI/CD:** dbt Tests · dbt_expectations · Soda Core · GitHub Actions · GitLab · RBAC · Data Governance · Data Lineage · Data Catalogue · Monitoring & Alerting · CI/CD Pipelines · Grafana
+
+**Streaming & Distributed Systems:** Apache Kafka · Redis · REST APIs · AWS SQS · JSON/HTML/PDF parsing
 
 **PROJECTS**
 

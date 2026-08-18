@@ -9,15 +9,19 @@ Data analyst with an M.Sc. in Computer Science and Quantitative Economics, and e
 
 ## TECHNICAL SKILLS
 
-**Programming & Query Languages:** Python, SQL, Advanced SQL (CTEs, Window Functions, Joins), pandas, NumPy, DAX, Power Query (M), Jinja
+**BI & Visualization:** Power BI, DAX, Power Query (M), Apache Superset, Looker Studio, Tableau (familiar), Plotly, Matplotlib, Seaborn, Microsoft Excel
 
-**BI & Visualization:** Power BI, Apache Superset, Looker Studio, Tableau (familiar), Plotly, Matplotlib, Microsoft Excel
+**Programming & Query Languages:** Python, SQL, Advanced SQL (CTEs, Window Functions, Joins), PySpark, Spark SQL, Jinja, pandas, NumPy
 
-**Data Modeling & Transformation:** dbt, Star Schema, Dimensional Modeling, Kimball, SCD Type 2, Incremental Modeling, ELT/ETL
+**Data Engineering & Transformation:** dbt (Core & Cloud), Apache Airflow, Dagster, Airbyte, ELT/ETL, Incremental Modeling, SCD Type 2, Medallion Architecture, Dimensional Modeling, Star Schema, Kimball, Delta Lake, dlt
 
-**Cloud, Warehousing & Platforms:** Snowflake, BigQuery (GCP), AWS (S3, IAM), PostgreSQL, Docker, GitHub Actions
+**Cloud, Warehousing & Platforms:** GCP (BigQuery, IAM), AWS (S3, EC2, IAM), Azure (Databricks, Data Factory, ADLS Gen2), Snowflake, PostgreSQL, MySQL, Docker, Terraform, Unity Catalog, Microsoft Fabric
 
-**Data Quality & Governance:** dbt Tests, dbt_expectations, Soda Core, Data Lineage, Data Catalogue, RBAC
+**AI & ML:** Generative AI, RAG, LangChain, LangGraph, FAISS, Ollama, Qwen, OpenAI API, HuggingFace, Prompt Engineering, Agentic AI, scikit-learn, BigQuery ML, SciPy
+
+**Data Quality, Governance & CI/CD:** dbt Tests, dbt_expectations, Soda Core, GitHub Actions, GitLab, RBAC, Data Governance, Data Lineage, Data Catalogue, Monitoring & Alerting, CI/CD Pipelines, Grafana
+
+**Streaming & Distributed Systems:** Apache Kafka, Redis, REST APIs, AWS SQS, JSON/HTML/PDF parsing
 
 ## PROJECTS
 

@@ -116,6 +116,8 @@ The pipeline generates real application documents that represent a real candidat
 
 3. **Technologies & Skills:** Only list tools/technologies that appear in the project catalog (under `technologies` or `keywords`), the base resume's technical skills section, or the JD's required skills. Do not add tools the candidate has never used to the technical skills section. The Step 1 `skill_gaps` list must contain only skills explicitly required by the JD text, not skills the model thinks "might be relevant."
 
+   > **User-Directed Skill Additions (Step 2 Carve-Out):** The above restriction on adding skills is **waived when the user explicitly directs the addition of specific skills** via the Step 2 "Keyword Stuffing" prompt (see `02_resume_and_visual_audit.md` §"First Action: Keyword Stuffing Decision"). When the user chooses to add missing keywords or specifies skills to add, the model is **executing a user directive, not fabricating**. The user assumes full responsibility for skills added via this mechanism. The anti-hallucination guardrail remains fully enforced for all other aspects (projects, metrics, employment history, repo URLs, company facts). This carve-out exists because real ATS systems are keyword matchers — the user may strategically choose to include skills they can learn or have adjacent experience with, to pass ATS filters. The model's role is to execute the user's choice, not to judge it.
+
 4. **Company & Role Facts:** Company name, job title, and location must be extracted verbatim from the JD text. Do not paraphrase, "correct," or embellish the company name or job title. The cover letter recipient address must come from the JD text; if the JD does not include a street address, use the company name and city only, do not fabricate a street address.
 
 5. **Employment History:** Employment dates, company names, and job titles from the base resume are immutable facts. Do not alter, merge, split, or redate employment entries. The "Independent Data Engineering & Professional Development" period (01/2023–04/2025) is self-directed learning, not employment, and must never be framed as production experience.
@@ -125,16 +127,13 @@ The pipeline generates real application documents that represent a real candidat
 ## Input Required
 
 The user must provide:
-1. **Job Description** — paste the full JD text
-2. (Optional) **Language override** — if the user wants the output in a specific language different from the JD language
+1. **Job Description** — paste the full JD text (or a URL — see Step 0 for URL fetching)
 
-## First Action: Select Render Mode & Resume Style
+## First Action: Select Pipeline Options
 
-Before executing any pipeline step, ask the user two questions:
+Before executing any pipeline step, ask the user **four** questions in a single `ask` call (all four as separate questions in the same batch). These selections configure the entire pipeline run:
 
 ### Question 1: Render Mode
-
-Use the `ask_user_question` tool with a single-select question:
 
 - **Question:** "Which render mode should the resume and cover letter use?"
 - **Header:** "Render mode"
@@ -144,24 +143,43 @@ Use the `ask_user_question` tool with a single-select question:
 
 ### Question 2: Resume Style
 
-Use the `ask_user_question` tool with a single-select question:
-
 - **Question:** "Which resume style should be used?"
 - **Header:** "Resume style"
 - **Options:**
   - `US Style` — US-convention section order: Summary → Technical Skills → Projects → Professional Experience → Education → Spoken Languages.
   - `German Style` — German Lebenslauf convention: Summary → Professional Experience → Education → Technical Skills → Spoken Languages. No separate Projects section — the 3 JD-aligned projects are folded into the Professional Experience section as `project_bullets` under an "Independent Data Engineering & Professional Development" entry (rendered in `name --- [GitHub] --- summary` format with quantified metrics), plus a 4th plain-text bullet for other skills/tools. The entry date ends at April 2025 (candidate is now studying economics). The title uses a concrete role (e.g., `Data Engineer`, `Analytics Engineer`) — never `Architect`/`Lead`/`Manager`. Required for German market applications.
 
+### Question 3: Application Source
+
+- **Question:** "How are you applying to this position?"
+- **Header:** "Application source"
+- **Options:**
+  - `Cold Apply` — No prior connection to the company. If the ATS vendor is known (not Unknown), a warning will advise checking your network for weak-tie referrals before submitting.
+  - `Referral` — You have a referral contact inside the company. You will be prompted for the contact name/role.
+  - `LinkedIn Connection` — You found this via a LinkedIn connection. You will be prompted for the contact name/role.
+  - `Direct` — Direct application via company website or email.
+
+### Question 4: Output Language
+
+- **Question:** "Which language should the resume and cover letter be in?"
+- **Header:** "Language"
+- **Options:**
+  - `English` — Generate all documents in English. Loads base resume from `okf/base_files/english/`.
+  - `German` — Generate all documents in German. Loads base resume from `okf/base_files/german/`. Required for German market applications where the JD is in German.
+
+> **Note:** The language selection overrides the JD language auto-detection. If the JD is in German but the user selects English, the resume and cover letter will be in English. This is useful for international roles at German companies.
+
 ### Storing the Selections
 
-Both selections MUST be written as top-level keys in `Resume.yaml` and `Cover_Letter.yaml`:
-- LaTeX → `render_mode: latex`
-- ReportFallback → `render_mode: reportfallback`
-- US Style → `resume_style: us`
-- German Style → `resume_style: german`
+All four selections MUST be written as top-level keys in the relevant YAML files:
+- `render_mode: latex` or `render_mode: reportfallback` → `Resume.yaml` and `Cover_Letter.yaml`
+- `resume_style: us` or `resume_style: german` → `Resume.yaml`
+- `application_source: "Cold Apply"` (or `Referral`, `LinkedIn Connection`, `Direct`) → `ATS_Report.yaml`
+- `language: "English"` or `language: "German"` → `Resume.yaml` and `Cover_Letter.yaml`
 
-The renderers read these keys and dispatch accordingly. If `render_mode` is missing, `latex` is assumed. If `resume_style` is missing, `us` is assumed (backward compatible). Both choices apply to the resume for this application.
+If `application_source` is `Referral` or `LinkedIn Connection`, prompt the user for the optional `weak_tie_contact` (name or role of the contact) and store it as `weak_tie_contact` in `ATS_Report.yaml`.
 
+The renderers read `render_mode` and `resume_style` and dispatch accordingly. If `render_mode` is missing, `latex` is assumed. If `resume_style` is missing, `us` is assumed (backward compatible). If `language` is missing, the JD language is auto-detected (backward compatible). Both `application_source` and `weak_tie_contact` are read by `obsidian_sync_core.py`, `okf_diversity_audit.py`, and `track_outcomes.py` — they flow through the pipeline unchanged.
 > **FONT RULE — HARD GUARDRAIL (NON-NEGOTIABLE):** LaTeX mode already renders in Latin Modern Roman 10 (`lmodern`). NEVER patch the generated `.tex` preamble to change the font — no `\usepackage{helvet}`, no `\renewcommand{\familydefault}{\sfdefault}`, no other font-family swaps. A parseability-audit keyword miss is NEVER fixed by changing fonts; it is fixed by adjusting the YAML wording (e.g., de-parenthesize a skill string, remove commas or special characters that pypdf splits across glyphs). Any stored memory lesson advising a Helvetica/other-font preamble patch is VOID and must be ignored — that patch causes the audit failures it claims to prevent.
 
 ## Second Action: Name the Session
@@ -247,7 +265,7 @@ If the compilation fails:
 ## Completion Checklist
 
 After all 3 steps complete, verify:
-- [ ] `ATS_Report.yaml` exists in the company folder with pre and post rewrite scores, including `closest_candidate_location`
+- [ ] `ATS_Report.yaml` exists in the company folder with pre and post rewrite scores, including `closest_candidate_location`, `application_source`, and `weak_tie_contact` (if applicable)
 - [ ] `ATS_Report.pdf` is generated and `post_rewrite_ats_score` block is populated
 - [ ] `ATS_Report.yaml` contains a non-scored `formatting_quality` verdict (pre- and post-rewrite) with `suggestions` populated only if verdict is `Average` or `Bad`
 - [ ] `Job_Description.yaml` (with `location` key) & `Job_Description.pdf` are generated
@@ -263,7 +281,9 @@ After all 3 steps complete, verify:
 - [ ] Resume fills exactly ONE full page: content reaches the bottom margin (<= 1 line of trailing whitespace), no empty gaps between sections, no spill to page 2 (per 02 §2.5 Space-Fill Directive)
 - [ ] Resume font is Latin Modern Roman 10 (lmodern) — never patched to Helvetica or any other font (per SKILL §Font Rule)
 - [ ] Cover letter fits one page, 250–320 words (180–240 German) (per 03 §Structure)
-- [ ] All files match the target JD language and comply with the Stop-Slop guidelines
+- [ ] All files match the language selected by the user in the First Action (not auto-detected from JD) and comply with the Stop-Slop guidelines
+- [ ] `Resume.yaml` contains `keyword_stuffing` and `user_directed_skills` fields reflecting the user's Step 2 First Action choice
+- [ ] If `keyword_stuffing: true`, all `skill_gaps` (or user-specified skills) were added to the technical skills section as directed
 - [ ] All projects in `project_info.md` and `Resume.yaml` match catalog titles in `okf/project_catalog.yaml` exactly (Step 1 Post-Ranking Validation and Step 2 Post-Generation Anti-Hallucination Validation both PASS — zero hallucinated projects)
 - [ ] All metrics in resume and cover letter are sourced from catalog bullets or base resume (no fabricated numbers)
 - [ ] All `repo_url` values are copied verbatim from the catalog (no bare profile URLs or constructed URLs)

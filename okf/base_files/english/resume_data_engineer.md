@@ -9,15 +9,19 @@ Data engineer with an M.Sc. in Computer Science and enterprise-grade production 
 
 ## TECHNICAL SKILLS
 
-**Programming & Query Languages:** Python, SQL, Advanced SQL (CTEs, Window Functions), PySpark, Spark SQL, Jinja
+**Data Engineering & Transformation:** dbt (Core & Cloud), Apache Airflow, Dagster, Airbyte, ELT/ETL, Incremental Modeling, SCD Type 2, Medallion Architecture, Dimensional Modeling, Star Schema, Kimball, Delta Lake, dlt
 
-**Data Engineering & Transformation:** dbt, Apache Airflow, Dagster, Airbyte, ELT/ETL, Incremental Modeling, SCD Type 2, Medallion Architecture
+**Programming & Query Languages:** Python, SQL, Advanced SQL (CTEs, Window Functions, Joins), PySpark, Spark SQL, Jinja, pandas, NumPy
 
-**Cloud, Warehousing & Platforms:** GCP (BigQuery, IAM), AWS (S3, EC2), Azure (Databricks, ADF, ADLS Gen2), Snowflake, PostgreSQL, Docker, Terraform
+**Cloud, Warehousing & Platforms:** GCP (BigQuery, IAM), AWS (S3, EC2, IAM), Azure (Databricks, Data Factory, ADLS Gen2), Snowflake, PostgreSQL, MySQL, Docker, Terraform, Unity Catalog, Microsoft Fabric
 
-**Data Quality, Governance & CI/CD:** dbt Tests, Soda Core, GitHub Actions, RBAC, Data Governance, Data Lineage, Monitoring & Alerting
+**Data Quality, Governance & CI/CD:** dbt Tests, dbt_expectations, Soda Core, GitHub Actions, GitLab, RBAC, Data Governance, Data Lineage, Data Catalogue, Monitoring & Alerting, CI/CD Pipelines, Grafana
 
-**Streaming & Distributed Systems:** Apache Kafka, Redis, REST APIs
+**Streaming & Distributed Systems:** Apache Kafka, Redis, REST APIs, AWS SQS, JSON/HTML/PDF parsing
+
+**BI & Visualization:** Power BI, DAX, Power Query (M), Apache Superset, Looker Studio, Tableau (familiar), Plotly, Matplotlib, Seaborn, Microsoft Excel
+
+**AI & ML:** Generative AI, RAG, LangChain, LangGraph, FAISS, Ollama, Qwen, OpenAI API, HuggingFace, Prompt Engineering, Agentic AI, scikit-learn, BigQuery ML, SciPy
 
 ## PROJECTS
 

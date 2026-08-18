@@ -9,17 +9,19 @@ Analytics engineer with an M.Sc. in Computer Science and enterprise-grade produc
 
 ## TECHNICAL SKILLS
 
-**Data Modeling & Transformation:** dbt (Core & Cloud), Star Schema, Dimensional Modeling, Kimball, SCD Type 2, Incremental Modeling, ELT/ETL, Jinja
+**Data Engineering & Transformation:** dbt (Core & Cloud), Apache Airflow, Dagster, Airbyte, ELT/ETL, Incremental Modeling, SCD Type 2, Medallion Architecture, Dimensional Modeling, Star Schema, Kimball, Delta Lake, dlt
 
-**Programming & Query Languages:** SQL, Advanced SQL (CTEs, Window Functions, Joins), Python, pandas, Spark SQL, Power Query (M)
+**BI & Visualization:** Power BI, DAX, Power Query (M), Apache Superset, Looker Studio, Tableau (familiar), Plotly, Matplotlib, Seaborn, Microsoft Excel
 
-**Cloud, Warehousing & Platforms:** Snowflake, BigQuery (GCP), AWS (S3, IAM), PostgreSQL, Azure Databricks, Docker, Terraform
+**Programming & Query Languages:** Python, SQL, Advanced SQL (CTEs, Window Functions, Joins), PySpark, Spark SQL, Jinja, pandas, NumPy
 
-**Orchestration & CI/CD:** Apache Airflow, Dagster, GitHub Actions, GitLab, CI/CD Pipelines
+**Cloud, Warehousing & Platforms:** GCP (BigQuery, IAM), AWS (S3, EC2, IAM), Azure (Databricks, Data Factory, ADLS Gen2), Snowflake, PostgreSQL, MySQL, Docker, Terraform, Unity Catalog, Microsoft Fabric
 
-**Data Quality & Governance:** dbt Tests, dbt_expectations, Soda Core, RBAC, Data Lineage, Data Catalogue, Monitoring & Alerting
+**Data Quality, Governance & CI/CD:** dbt Tests, dbt_expectations, Soda Core, GitHub Actions, GitLab, RBAC, Data Governance, Data Lineage, Data Catalogue, Monitoring & Alerting, CI/CD Pipelines, Grafana
 
-**BI & Visualization:** Power BI, DAX, Apache Superset, Looker Studio, Tableau (familiar)
+**Streaming & Distributed Systems:** Apache Kafka, Redis, REST APIs, AWS SQS, JSON/HTML/PDF parsing
+
+**AI & ML:** Generative AI, RAG, LangChain, LangGraph, FAISS, Ollama, Qwen, OpenAI API, HuggingFace, Prompt Engineering, Agentic AI, scikit-learn, BigQuery ML, SciPy
 
 ## PROJECTS
 

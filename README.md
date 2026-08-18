@@ -18,7 +18,8 @@ URL (optional) ──► Step 0: JD Fetch ──► Step 1: ATS + Project Rankin
 
 1. Paste a JD (or a job posting URL)
 2. Type `execute llm-cv`
-3. The agent runs all steps end-to-end and writes outputs to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
+3. Answer the 4-question startup prompt (render mode, resume style, application source, language)
+4. The agent runs all steps end-to-end and writes outputs to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
 
 ## Prerequisites
 
@@ -41,7 +42,7 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 |:---|:---|:---|
 | **0** (optional) | Scrape JD from URL. Jina Reader for JS-SPA sites, webfetch for static, manual paste fallback. | Clean JD text |
 | **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (16 → top 6), JD archival, location tailoring. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
-| **2** | Resume rewrite (skill gap closure, archetype tuning), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
+| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 | **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
 
@@ -92,7 +93,7 @@ llm-cv/
 │   ├── project_catalog.yaml          # 16-project catalog (source of truth)
 │   ├── project_mappings.yaml         # Obsidian sync mappings
 │   ├── skill_mappings.yaml           # Obsidian sync mappings
-│   ├── base_files/                   # 5 English + 1 German base resumes
+│   ├── base_files/                   # 6 base resumes (unified 72-skill set, archetype-specific ordering)
 │   ├── .jd_cache/                    # JD URL cache (7-day TTL)
 │   ├── .location_cache.json          # Cached location lookups
 │   └── .font_cache.json              # Font cache

@@ -14,19 +14,19 @@ Data-Professional mit M.Sc. Informatik und Produktionserfahrung im Enterprise-Um
 
 **TECHNISCHE FÄHIGKEITEN**
 
-**Programmier- & Abfragesprachen:** Python, SQL, Advanced SQL (CTEs, Window Functions, Joins), Spark SQL, PySpark, DAX, Power Query (M), Jinja
+**Programmier- & Abfragesprachen:** Python, SQL, Advanced SQL (CTEs, Window Functions, Joins), PySpark, Spark SQL, Jinja, pandas, NumPy
 
-**Data Engineering & Transformation:** dbt, Apache Airflow, Dagster, Airbyte, ETL/ELT, Incremental Modeling, SCD Type 2, Dimensional Modeling, Data Modelling, Star Schema, Medallion Architecture
+**Data Engineering & Transformation:** dbt (Core & Cloud), Apache Airflow, Dagster, Airbyte, ELT/ETL, Incremental Modeling, SCD Type 2, Dimensional Modeling, Star Schema, Kimball, Medallion Architecture, Delta Lake, dlt
 
-**Cloud, Data Warehousing & Plattformen:** Snowflake, Microsoft Azure, Microsoft Fabric, Unity Catalog, PostgreSQL, AWS, Google BigQuery, GCP, Terraform (IaC)
+**Cloud, Data Warehousing & Plattformen:** GCP (BigQuery, IAM), AWS (S3, EC2, IAM), Azure (Databricks, Data Factory, ADLS Gen2), Snowflake, PostgreSQL, MySQL, Docker, Terraform, Unity Catalog, Microsoft Fabric
 
-**Datenqualität, Governance & CI/CD:** Soda Core, dbt Tests, GitHub Actions, GitLab, RBAC, Data Governance, Data Lineage, Data Catalogue, Monitoring & Alertin**g**
+**BI & Datenvisualisierung:** Power BI, DAX, Power Query (M), Apache Superset, Looker Studio, Tableau (Grundkenntnisse), Plotly, Matplotlib, Seaborn, Microsoft Excel
 
-**Streaming & Verteilte Systeme:** Apache Kafka, Redis, PySpark
+**KI & ML:** Generative AI, RAG, LangChain, LangGraph, FAISS, Ollama, Qwen, OpenAI API, HuggingFace, Prompt Engineering, Agentic AI, scikit-learn, BigQuery ML, SciPy
 
-**BI & Datenvisualisierung:** Power BI, Apache Superset, Looker Studio, Plotly, Matplotlib, Seaborn, Microsoft Excel, Tableau (Grundkenntnisse)
+**Datenqualität, Governance & CI/CD:** dbt Tests, dbt_expectations, Soda Core, GitHub Actions, GitLab, RBAC, Data Governance, Data Lineage, Data Catalogue, Monitoring & Alerting, CI/CD Pipelines, Grafana
 
-**KI & Web-Extraktion:** RAG, LangChain, LangGraph, BeautifulSoup, Requests, REST APIs, JSON/HTML/PDF Parsing
+**Streaming & Verteilte Systeme:** Apache Kafka, Redis, REST APIs, AWS SQS, JSON/HTML/PDF Parsing
 
 **PROJEKTE**
 

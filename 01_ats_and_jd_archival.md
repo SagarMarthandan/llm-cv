@@ -32,14 +32,14 @@ Per SKILL.md §"Name the Session" — extract Company Name and Job Role from the
 ### 0b. Pre-Scoring: Verify Dependencies & Load Base Files
 Before any scoring or analysis, perform the following verification and loading steps:
 1. **Python Environment (no action needed):** All pipeline dependencies are pre-installed in the project-local virtual environment at `/home/sagar/Skills/llm-cv/.venv/`. **All `python` commands in this pipeline MUST use the absolute path `/home/sagar/Skills/llm-cv/.venv/bin/python`** verbatim, regardless of the current working directory. Do NOT run `pip install` — the venv is already provisioned and gitignored. Dependencies: `pyyaml`, `reportlab`, `pypdf` (no embedding or vector DB dependencies needed).
-2. **Load base resume:** Load the candidate's base resume from the detected language folder. The pipeline uses **archetype-specific base resumes** to maximize pre-rewrite ATS scores:
+2. **Load base resume:** Load the candidate's base resume using the **language selected in the pipeline's First Action** (not auto-detected from the JD). The pipeline uses **archetype-specific base resumes** to maximize pre-rewrite ATS scores:
    - First, detect the JD's primary role archetype from the job title and description. The supported archetypes are:
      - `Data Engineer` → `resume_data_engineer.md`
      - `Data Analyst` → `resume_data_analyst.md`
      - `Analytics Engineer` → `resume_analytics_engineer.md`
      - `AI Data Engineer` → `resume_ai_data_engineer.md`
-   - Load the matching archetype base resume from `okf/base_files/english/` (or `okf/base_files/german/` for German JDs — append `_de` to the filename, e.g. `resume_data_engineer_de.md`).
-   - If the archetype doesn't match any of the 4 specific bases, fall back to the generic `resume.md` (or `resume_de.md` for German).
+   - Load the matching archetype base resume from `okf/base_files/english/` if the user selected English, or `okf/base_files/german/` if the user selected German. For German, use `resume_de.md` (the single German base resume covers all archetypes).
+   - If the archetype doesn't match any of the 4 specific bases, fall back to the generic `resume.md` (English) or `resume_de.md` (German).
    *(Note: You do not need to load a global project_info.md file in Step 1, because the LLM ranking in Step 1 will dynamically generate a tailored project_info.md file inside the application folder).*
 
 Do not proceed to scoring without first loading the base resume file. All gap analysis and keyword comparisons must reference the loaded resume content.
@@ -55,9 +55,9 @@ Before scoring, gather monoculture-counter metadata:
    - `lever.co` → `Lever`
    - `taleo.net` → `Taleo`
    - If none found, default to `Unknown`.
-2. **Application Source Selection:** Prompt the user for the application source. Valid values: `Cold Apply`, `Referral`, `LinkedIn Connection`, `Direct`.
+2. **Application Source:** Read the `application_source` value selected by the user in the pipeline's First Action (do NOT prompt again). Valid values: `Cold Apply`, `Referral`, `LinkedIn Connection`, `Direct`.
    - If the source is `Cold Apply` and the vendor is known (not `Unknown`), output a warning advising the user to check their network for weak ties before submitting.
-   - If the source is `Referral` or `LinkedIn Connection`, prompt for the optional `weak_tie_contact` (name or role of the contact).
+   - If the source is `Referral` or `LinkedIn Connection`, read the `weak_tie_contact` collected during the First Action (do NOT prompt again).
 
 > **Note:** The diversity audit (`okf_diversity_audit.py`) is no longer run automatically per application. It is a standalone tool for weekly review — see `docs/ARCHITECTURE.md` §"Weekly Review: Diversity Audit". For per-application outcome and channel tracking, use `track_outcomes.py report` (see README).
 
@@ -179,7 +179,7 @@ placement_breakdown:        # Contextual keyword placement weighting (P4)
   # Each entry: { keyword: "...", sections_found: ["skills", "projects", "experience"], multiplier: 1.5 }
   # Multipliers: skills=1.0x, project summary=1.2x, experience bullet=1.3x, multiple sections=1.5x
 improvement_blueprint:
-  target_language_confirmation: "German/English"
+  target_language_confirmation: "[Language selected by user in First Action — English or German]"
   bullet_point_density_audit:
     - bullet: "[Exact bullet text from base resume]"
       issue: "No quantified metric"
