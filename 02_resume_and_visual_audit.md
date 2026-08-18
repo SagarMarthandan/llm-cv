@@ -106,7 +106,7 @@ To pass the visual audit and recruiter "eye test," the resume MUST fill exactly 
 - **Professional Experience:** Exactly 4 bullets for **IBM India**, exactly 2 bullets for **Staff 4 cruise** (werkstudent).
 - **Strict Single-Line Experience Bullets:**
   - Every single bullet in experience must be strictly `<= 105` characters and occupy exactly one line on the compiled PDF (no wrapping/overflow to a second line). **105 characters is the canonical limit — apply it to all experience bullets.**
-- **Format:** LaTeX templates are primary (saving the `.tex` source file generated), ReportLab fallback. No photo embedding — photos are added manually via a PDF editor if needed.
+- **Format:** LaTeX templates are primary (saving the `.tex` source file generated), ReportLab fallback. Candidate photo is stamped onto the final PDF automatically in LaTeX mode (see Step C).
 - **Render Mode:** Per SKILL.md §"Select Render Mode" — `render_mode: latex` (default) or `render_mode: reportfallback`. When ReportFallback is selected, skip Section 4 (LaTeX Polish) and Steps B/C — the initial `yaml_to_pdf.py` invocation produces the final PDF.
 
 ### 2.5. Space-Fill Directive (Fill the Resume — MANDATORY, ONE FULL PAGE)
@@ -394,6 +394,10 @@ pdflatex -interaction=nonstopmode "SAGAR_MARTHANDAN_Resume.tex"
 # For German JDs:
 pdflatex -interaction=nonstopmode "SAGAR_MARTHANDAN_Lebenslauf.tex"
 pdflatex -interaction=nonstopmode "SAGAR_MARTHANDAN_Lebenslauf.tex"
+
+# Stamp candidate photo onto the final PDF (LaTeX mode only)
+/home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/stamp_photo.py" "SAGAR_MARTHANDAN_Lebenslauf.pdf" "Resume.yaml"
+# For English resumes: substitute "SAGAR_MARTHANDAN_Resume.pdf" as the first argument
 
 # Compile the updated ATS Report with post-rewrite scores
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf"
