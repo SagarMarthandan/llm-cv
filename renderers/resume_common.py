@@ -4,13 +4,15 @@ Shared helpers for the resume renderers (LaTeX and ReportFallback).
 Keeps language detection, section headers, data extraction, and common
 rendering logic in one place so all four renderers stay in sync.
 """
+import os
 import re
+import tempfile
 
 from .utils import (
     TEXT_DARK, TEXT_MUTED, LINE_COLOR,
     escape_latex,
 )
-from config import CANDIDATE_NAME
+from config import CANDIDATE_NAME, CANDIDATE_PHOTO
 
 # ── ReportLab imports (used by ReportFallback shared functions) ───────────────
 from reportlab.lib.pagesizes import A4
@@ -300,14 +302,37 @@ def generate_latex_summary_tex(data, h):
 
 
 def generate_latex_education_tex(data, h):
-    """Generate LaTeX education section."""
-    edu_tex_items = []
+    """Generate LaTeX education section.
+
+    All entries use the same font size, determined by the longest
+    degree+university combination so everything stays on one line
+    and entries look visually consistent.
+    """
     edu_list = data.get('education', data.get('ausbildung', []))
-    for edu in edu_list:
-        degree = escape_latex(edu.get('degree', ''))
-        univ   = escape_latex(edu.get('university', ''))
-        date   = escape_latex(edu.get('date', ''))
-        edu_tex_items.append(f"\\eduEntry{{{degree}}}{{{univ}}}{{{date}}}")
+    if not edu_list:
+        return ""
+    # Find the longest combined entry to pick a uniform font size
+    max_len = max(len(e.get('degree', '')) + len(e.get('university', '')) for e in edu_list)
+    if max_len <= 70:
+        # Standard: degree normal, university \small — use \eduEntry macro
+        edu_tex_items = []
+        for edu in edu_list:
+            degree = escape_latex(edu.get('degree', ''))
+            univ   = escape_latex(edu.get('university', ''))
+            date   = escape_latex(edu.get('date', ''))
+            edu_tex_items.append(f"\\eduEntry{{{degree}}}{{{univ}}}{{{date}}}")
+    else:
+        # Long entries: shrink all to \small/\footnotesize, wrap in \mbox
+        edu_tex_items = []
+        for edu in edu_list:
+            degree = escape_latex(edu.get('degree', ''))
+            univ   = escape_latex(edu.get('university', ''))
+            date   = escape_latex(edu.get('date', ''))
+            edu_tex_items.append(
+                f"\\mbox{{\\small\\textbf{{{degree}}}}}"
+                f"~\\mbox{{\\footnotesize\\textit{{{univ}}}}}"
+                f" \\hfill {{\\small\\textit{{{date}}}}}"
+            )
     education_body = " \\\\\n".join(edu_tex_items)
     education_tex = (
         f"\\section{{{h['education']}}}\n"
@@ -918,3 +943,79 @@ def render_spoken_languages_rl(ctx):
         Paragraph(" &bull; ".join(lang_items), ctx.styles['skill_val']),
         Spacer(1, ctx.spacing['languages_trailing'])
     ]
+
+
+# ── Photo stamping (post-processing) ──────────────────────────────────────────
+
+def get_photo_path(data):
+    """Resolve the photo path from YAML contact_info.photo or config default.
+
+    Returns the absolute path if the file exists, else None.
+    Set contact_info.photo to null/false in YAML to explicitly disable.
+    """
+    contact = data.get('contact_info', {})
+    photo = contact.get('photo', '')
+    if photo is None or photo is False:
+        return None
+    if not photo:
+        photo = CANDIDATE_PHOTO
+    if not photo or not os.path.exists(str(photo)):
+        return None
+    return str(photo)
+
+
+def stamp_photo_on_pdf(pdf_path, photo_path, render_mode='latex', page_index=0):
+    """Overlay a photo onto the top-right corner of a PDF page.
+
+    Creates a transparent ReportLab overlay with just the image, then merges
+    it onto the target page using pypdf. The original PDF is replaced in-place.
+
+    The photo position and size are tuned per render mode because LaTeX and
+    ReportFallback use different top margins (0.4in vs 0.3in), so the content
+    starts at different heights.
+
+    Args:
+        pdf_path: Path to the generated resume PDF (modified in-place).
+        photo_path: Path to the photo image file.
+        render_mode: 'latex' or 'reportfallback' — adjusts photo position/size.
+        page_index: 0-based page to stamp (default: first page).
+    """
+    from reportlab.pdfgen import canvas as rl_canvas
+    from reportlab.lib.pagesizes import A4 as RL_A4
+    from pypdf import PdfReader, PdfWriter
+
+    page_w, page_h = RL_A4
+    margin = MARGIN_INCHES * inch       # 0.4in — side margins (both renderers)
+
+    # LaTeX uses 0.4in margin all around; header is taller.
+    top_margin = 0.25 * inch        # 18pt — nudged up for headshot padding
+    photo_size = 1.40 * inch        # 100.8pt — spans name to summary rule
+
+    # Position: top-right corner, aligned with page margins
+    x = page_w - margin - photo_size
+    y = page_h - top_margin - photo_size
+
+    # 1. Create overlay PDF with just the photo
+    overlay_fd, overlay_path = tempfile.mkstemp(suffix='.pdf')
+    os.close(overlay_fd)
+    c = rl_canvas.Canvas(overlay_path, pagesize=RL_A4)
+    c.drawImage(photo_path, x, y, width=photo_size, height=photo_size,
+                preserveAspectRatio=True, mask='auto')
+    c.showPage()
+    c.save()
+
+    # 2. Merge overlay onto original PDF
+    reader = PdfReader(pdf_path)
+    overlay_reader = PdfReader(overlay_path)
+    writer = PdfWriter()
+
+    for i, page in enumerate(reader.pages):
+        if i == page_index:
+            page.merge_page(overlay_reader.pages[0])
+        writer.add_page(page)
+
+    with open(pdf_path, 'wb') as f:
+        writer.write(f)
+
+    os.remove(overlay_path)
+    print(f"Stamped photo onto {pdf_path} (page {page_index + 1}, {render_mode} sizing)")

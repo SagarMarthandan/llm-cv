@@ -15,7 +15,7 @@ Routing matrix:
 Backward compatible: when resume_style is missing, 'us' is assumed so
 existing YAMLs continue to route to the original renderers.
 """
-from .resume_common import HEADERS, get_resume_language
+from .resume_common import HEADERS, get_resume_language, get_photo_path, stamp_photo_on_pdf
 from .resume_latex_us import create_resume_pdf_latex
 from .resume_reportfallback_us import create_resume_pdf_reportlab
 from .resume_latex_german import create_resume_pdf_latex_germany
@@ -58,3 +58,10 @@ def create_resume_pdf(data, output_path):
             create_resume_pdf_latex_germany(data, output_path)
         else:
             create_resume_pdf_latex(data, output_path)
+
+    # Post-processing: stamp photo onto the final PDF's top-right corner
+    # Only for LaTeX mode — ReportFallback users can add the photo manually
+    # via a PDF editor if needed.
+    photo = get_photo_path(data)
+    if photo and mode == 'latex':
+        stamp_photo_on_pdf(output_path, photo, render_mode=mode)

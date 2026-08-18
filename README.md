@@ -25,6 +25,7 @@ URL (optional) ──► Step 0: JD Fetch ──► Step 1: ATS + Project Rankin
 - **Python 3.12+** with `pyyaml`, `reportlab`, `pypdf` (in `.venv/`)
 - **TeX Live** (`pdflatex`) for LaTeX-mode PDFs
 - **Fonts**: Latin Modern Roman 10, CMU Concrete, Google Sans Code, Calibri/Carlito, Segoe UI, Cambria
+- **Candidate photo** (`okf/SAGAR_MARTHANDAN_foto.jpg`) — automatically stamped onto the top-right corner of LaTeX-mode resume PDFs
 
 ```bash
 # Create venv
@@ -43,6 +44,16 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 | **2** | Resume rewrite (skill gap closure, archetype tuning), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 | **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
+
+## Photo Stamping
+
+Resumes compiled in LaTeX mode automatically get the candidate's headshot (`okf/SAGAR_MARTHANDAN_foto.jpg`) stamped onto the top-right corner of page 1 as a post-processing step. The photo aligns with the name text at the top and sits just above the first section separator line.
+
+- **LaTeX mode:** Photo stamped automatically (1.40in, top-right)
+- **ReportFallback mode:** No photo stamping — add manually via a PDF editor if needed
+- **Disable per-application:** Set `contact_info.photo: null` in `Resume.yaml`
+- **Custom photo:** Set `contact_info.photo: /path/to/photo.jpg` in `Resume.yaml`
+- **Override default:** Set `LLM_CV_CANDIDATE_PHOTO` env var
 
 ## Project Catalog
 

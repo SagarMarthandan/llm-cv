@@ -33,6 +33,13 @@ CANDIDATE_NAME = os.getenv("LLM_CV_CANDIDATE_NAME", "Sagar Marthandan")
 CANDIDATE_PHONE = os.getenv("LLM_CV_CANDIDATE_PHONE", "+49 176 74138359")
 CANDIDATE_EMAIL = os.getenv("LLM_CV_CANDIDATE_EMAIL", "sagar.marthandan@yahoo.com")
 CANDIDATE_GITHUB = os.getenv("LLM_CV_CANDIDATE_GITHUB", "https://github.com/SagarMarthandan")
+# Candidate photo (headshot) for resume — stamped onto the final PDF's
+# top-right corner as a post-processing step. Set to None/empty to disable.
+# Override via env var or YAML contact_info.photo.
+CANDIDATE_PHOTO = os.getenv(
+    "LLM_CV_CANDIDATE_PHOTO",
+    os.path.join(SKILL_DIR, "okf", "SAGAR_MARTHANDAN_foto.jpg")
+)
 
 # Diversity audit thresholds
 DIVERSITY_VENDOR_CLUSTER_THRESHOLD = int(os.getenv("LLM_CV_DIVERSITY_VENDOR_THRESHOLD", "3"))
