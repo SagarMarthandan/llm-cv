@@ -9,7 +9,7 @@ LLM-CV is an ATS-optimized resume and cover letter generation pipeline. It repla
 - **LLM judgment over algorithmic matching:** The LLM ranker correctly distinguishes AI roles from DE roles, prioritizes Power BI projects for BI roles, and understands domain relevance — all without maintaining synonyms, allowlists, or transferable skills.
 - **Single source of truth:** One `project_catalog.yaml` file replaces 16 portfolio `.md` files, a synonyms map, a body-skill allowlist, and a transferable skills definition.
 - **Minimal dependencies:** Only `pyyaml`, `reportlab`, `pypdf` — no vector databases, embedding models, or ML frameworks.
-- **Cost:** ~$0.016 per application (~6,260 tokens). Negligible for a pipeline that runs once per application.
+- **Cost:** ~400K tokens per application in session-split mode (~1.6M for 4 runs). Single-session mode: ~2.5M tokens/run. See [Token Optimization](../README.md#token-optimization) for details.
 
 ---
 
@@ -98,7 +98,7 @@ The agent reads this catalog in Step 1 and ranks the top 6 projects for the JD. 
 
 All LaTeX/ReportLab renderers are unchanged from the original pipeline. See `renderers/__init__.py` for the package structure.
 
-### Pipeline Step Docs (5 `.md` files)
+### Pipeline Step Docs (6 `.md` files)
 
 | File | Role |
 |:---|:---|
@@ -107,6 +107,16 @@ All LaTeX/ReportLab renderers are unchanged from the original pipeline. See `ren
 | `01_ats_and_jd_archival.md` | Step 1: ATS scoring, JD archival, LLM project ranking |
 | `02_resume_and_visual_audit.md` | Step 2: Resume rewrite, layout audit, parseability |
 | `03_cover_letter.md` | Step 3: Cover letter generation |
+| `99_completion_checklist.md` | Post-pipeline verification (lazy-loaded, read only at end) |
+
+### Session Splitting
+
+| File | Role |
+|:---|:---|
+| `run_pipeline.sh` | Wrapper script: runs 3 separate OMP sessions, chains via disk |
+| `prompts/step1.md` | Step 1 session prompt template (reference) |
+| `prompts/step2.md` | Step 2 session prompt template (reference) |
+| `prompts/step3.md` | Step 3 session prompt template (reference) |
 
 ### Data Files
 

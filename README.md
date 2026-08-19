@@ -1,4 +1,3 @@
-[//]: # (DEVELOPER DOCUMENTATION ONLY — not part of agent runtime context. Do not read this file during pipeline execution.)
 # LLM-CV
 
 ATS-optimized resume and cover letter tailoring pipeline. Paste a job description (or a URL) and get a tailored resume + cover letter as compiled PDFs, an archived JD, and an ATS score report.
@@ -16,14 +15,28 @@ URL (optional) ──► Step 0: JD Fetch ──► Step 1: ATS + Project Rankin
 
 ## Quick Start
 
+### Interactive (single session)
+
 1. Paste a JD (or a job posting URL)
 2. Type `execute llm-cv`
 3. Answer the 4-question startup prompt (render mode, resume style, application source, language)
 4. The agent runs all steps end-to-end and writes outputs to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
 
+### Token-efficient (session splitting — recommended)
+
+```bash
+cd /home/sagar/Skills/llm-cv
+./run_pipeline.sh                          # interactive — prompts for JD
+./run_pipeline.sh "paste JD text here"     # pass JD text directly
+./run_pipeline.sh --url "https://..."      # fetch JD from URL (triggers Step 0)
+./run_pipeline.sh --file jd.txt            # read JD from file
+```
+
+The wrapper script runs each pipeline step as a separate OMP session with clean context, chaining via disk files. This reduces token consumption by **84%** (~400K tokens/run vs ~2.5M single-session). See [Token Optimization](#token-optimization) below.
+
 ## Prerequisites
 
-- **Python 3.12+** with `pyyaml`, `reportlab`, `pypdf` (in `.venv/`)
+- **Python 3.10+** with `pyyaml`, `reportlab`, `pypdf` (in `.venv/`)
 - **TeX Live** (`pdflatex`) for LaTeX-mode PDFs
 - **Fonts**: Latin Modern Roman 10, CMU Concrete, Google Sans Code, Calibri/Carlito, Segoe UI, Cambria
 - **Candidate photo** (`okf/SAGAR_MARTHANDAN_foto.jpg`) — automatically stamped onto the top-right corner of LaTeX-mode resume PDFs
@@ -45,6 +58,28 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 | **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 | **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
+
+## Token Optimization
+
+The pipeline documentation was optimized to minimize token consumption for LLM-based agent runtimes (DeepSeek, GLM, Claude, etc.). Five techniques are applied:
+
+| Technique | What it does | Tokens saved/run |
+|:---|:---|:---|
+| **De-duplicated guardrails** | Shared rules (read-only, anti-hallucination, YAML safety, Stop-Slop) live in `SKILL.md` only; step docs reference them with 1-line pointers | ~8,800 base |
+| **Slimmed docs** | Condensed verbose prose to tables, bullets, and compact schemas across all 5 docs (56% total reduction) | ~16,500 base |
+| **Lazy loading** | Only the current step doc is read — not all 4 at once. Proceed-to-next directives chain steps | ~5,000 base |
+| **Extracted checklist** | Completion checklist moved to `99_completion_checklist.md`, read only at pipeline end | ~2,500 base |
+| **Session splitting** | `run_pipeline.sh` runs each step as a separate session with clean context — no cross-step accumulation | ~2,000,000/run |
+
+### Token consumption comparison
+
+| Mode | Per run | 4 runs | Quota (60M) | Resumes/month |
+|:---|:---|:---|:---|:---|
+| Original (pre-optimization) | ~2.5M | ~10M | 16.7% | ~24 |
+| Single-session (doc slimming only) | ~2.0M | ~8M | 13.3% | ~30 |
+| **Session-split (all optimizations)** | **~400K** | **~1.6M** | **2.7%** | **~149** |
+
+> **Prompt caching note:** On nanoGPT subscription plans, cached tokens still count toward quota at full rate. Doc slimming and session splitting are the only levers for subscription users. PAYG users benefit from prompt caching as well.
 
 ## Photo Stamping
 
@@ -79,9 +114,16 @@ llm-cv/
 ├── 01_ats_and_jd_archival.md         # Step 1: ATS + ranking + archival
 ├── 02_resume_and_visual_audit.md     # Step 2: Resume rewrite + audit
 ├── 03_cover_letter.md                # Step 3: Cover letter
+├── 99_completion_checklist.md        # Post-pipeline verification (lazy-loaded)
+├── run_pipeline.sh                   # Session-splitting wrapper script
+├── prompts/                          # Session prompt templates (reference docs)
+│   ├── step1.md
+│   ├── step2.md
+│   └── step3.md
 ├── config.py                         # Location lookup, candidate info
 ├── yaml_to_pdf.py                    # PDF compilation entry point
 ├── resume_parseability.py            # ATS parse-integrity audit
+├── stamp_photo.py                    # Candidate photo stamping (LaTeX post-process)
 ├── sync_to_obsidian.py               # Obsidian sync entry point
 ├── obsidian_sync_core.py             # Obsidian sync core logic
 ├── obsidian_folder_sort.py           # Folder sorting logic
@@ -108,6 +150,29 @@ llm-cv/
 └── llm-cv.code-workspace
 ```
 
+## Session Splitting
+
+`run_pipeline.sh` orchestrates 3 separate OMP sessions that chain via disk files:
+
+```
+Session 1 (Step 1): ~10 calls, ~20K base context
+    ↓ writes ATS_Report.yaml, Job_Description.yaml, project_info.md to disk
+    ↓ session ends — clean context
+
+Session 2 (Step 2): ~12 calls, ~11K base context
+    ↓ reads Step 1 outputs from disk
+    ↓ writes Resume.yaml, compiles resume, runs audits
+    ↓ session ends — clean context
+
+Session 3 (Step 3): ~8 calls, ~8K base context
+    ↓ reads Step 1+2 outputs from disk
+    ↓ writes Cover_Letter.yaml, compiles, runs Obsidian sync
+```
+
+**How steps chain:** The YAML schemas are the contract between steps. `ATS_Report.yaml` carries `render_mode`, `resume_style`, `language`, `application_source`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, and `closest_candidate_location` — all read by Step 2 and Step 3 from disk. The wrapper script collects the keyword stuffing decision (not persisted to disk) between Step 1 and Step 2 and passes it inline.
+
+**Manual re-runs:** Each step can be re-run independently by launching an OMP session with the appropriate prompt template (see `prompts/step1.md`, `prompts/step2.md`, `prompts/step3.md`). The agent reads previous step outputs from disk.
+
 ## Testing
 
 ```bash
@@ -126,6 +191,7 @@ llm-cv/
 | [01_ats_and_jd_archival.md](01_ats_and_jd_archival.md) | Step 1 rules |
 | [02_resume_and_visual_audit.md](02_resume_and_visual_audit.md) | Step 2 rules |
 | [03_cover_letter.md](03_cover_letter.md) | Step 3 rules |
+| [99_completion_checklist.md](99_completion_checklist.md) | Post-pipeline verification checklist |
 
 ## Self-Refresh
 

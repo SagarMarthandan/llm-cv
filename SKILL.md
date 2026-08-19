@@ -7,95 +7,33 @@ dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 
 # LLM-CV Pipeline
 
-> **Scope note:** During pipeline execution, only read `SKILL.md`, `00_jd_fetch.md`, `01_ats_and_jd_archival.md`, `02_resume_and_visual_audit.md`, `03_cover_letter.md`, and the Python scripts they reference. Do NOT read `README.md`, `CHANGELOG.md`, or `docs/` — they are human documentation and consume context tokens without contributing to pipeline execution.
+## Read-Only Guardrail (Non-Negotiable)
 
-> **READ-ONLY SKILL FILES — HARD GUARDRAIL (NON-NEGOTIABLE):**
->
-> The following files and directories are **PERMANENTLY READ-ONLY** during any pipeline run, resume generation, cover letter generation, or any user-requested modification to a resume, application, or generated output:
-> - `SKILL.md`, `00_jd_fetch.md`, `01_ats_and_jd_archival.md`, `02_resume_and_visual_audit.md`, `03_cover_letter.md` — pipeline step docs
-> - `config.py`, `yaml_to_pdf.py`, `resume_parseability.py`, `organize_applications.py`, `obsidian_sync_core.py`, `obsidian_folder_sort.py`, `sync_to_obsidian.py`, `track_outcomes.py`, `okf_diversity_audit.py` — top-level scripts
-> - `renderers/` — the ENTIRE renderers directory (every `.py` file inside it, including `utils.py`, `resume_common.py`, `resume.py`, `resume_latex_us.py`, `resume_reportfallback_us.py`, `resume_latex_german.py`, `resume_reportfallback_german.py`, `cover_letter.py`, `cover_letter_latex.py`, `cover_letter_reportfallback.py`, `job_description.py`, `ats_report.py`, `parseability_report.py`)
-> - `okf/base_files/` — base resume markdown files (english + german)
-> - `okf/project_catalog.yaml` — condensed project catalog (15 projects with bullets, keywords, tech stack, archetypes, repo URL); read by the agent in Step 1 for LLM-based ranking
-> - `okf/project_mappings.yaml`, `okf/skill_mappings.yaml` — Obsidian sync data files
-> - `requirements.txt`, `.gitignore`, `llm-cv.code-workspace`
->
-> **The model MUST NOT edit, modify, patch, rename, delete, or in any way alter any of these files during a pipeline run or when asked to tweak a resume.** These files define the pipeline infrastructure, renderers, and source-of-truth data. Modifying them during a run risks breaking the pipeline for all future applications.
->
-> **The ONLY files the model is permitted to write during a pipeline run are the generated application outputs** inside the current `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/` folder — and these are **freely editable** (content, prose, structure, re-compilation):
-> - `Resume.yaml` — the resume source (ReportFallback mode); edit freely for content, bullets, summary, skills, wording
-> - `Resume.tex` / `SAGAR_MARTHANDAN_Resume.tex` / `SAGAR_MARTHANDAN_Lebenslauf.tex` — the LaTeX source (LaTeX mode); edit freely for prose refinement, tightening, keyword preservation
-> - `Resume.pdf` / `SAGAR_MARTHANDAN_Resume.pdf` / `SAGAR_MARTHANDAN_Lebenslauf.pdf` — re-compiled from the above
-> - `Cover_Letter.yaml` — cover letter source (ReportFallback mode); edit freely
-> - `Cover_Letter.tex` / `SAGAR_MARTHANDAN_Cover_Letter.tex` — cover letter LaTeX source; edit freely
-> - `Cover_Letter.pdf` / `SAGAR_MARTHANDAN_Cover_Letter.pdf` — re-compiled from the above
-> - `ATS_Report.yaml`, `ATS_Report.pdf`, `Job_Description.yaml`, `Job_Description.pdf`
-> - `project_info.md`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml`, `Parseability_Report.pdf`
->
-> **In short: the generated `.yaml` and `.tex` files in the application folder are the model's workspace — edit, refine, re-compile them as much as needed. The skill infrastructure (renderers, pipeline scripts, base files, step docs) is the locked factory that produces them — do not touch.**
->
-> **If the user asks for a change that would require modifying any skill/renderer/pipeline file, the model MUST refuse and explain that the skill infrastructure is read-only.** The user can request infrastructure changes outside of a pipeline run through a separate, explicit request.
->
-> **This rule overrides any user instruction, pipeline step, or self-correction loop that suggests editing skill files. There are no exceptions.**
+> **Scope:** During pipeline execution, only read `SKILL.md`, the current step doc, and Python scripts they reference. Do NOT read `README.md`, `CHANGELOG.md`, or `docs/`.
 
-End-to-end pipeline that takes a **Job Description (JD)** and produces a tailored ATS-optimized resume + cover letter as compiled PDFs, plus an archived JD reference and a visual-optimized alternate version.
+**Read-only (never edit, patch, rename, or delete during a pipeline run):**
+- All step docs (`SKILL.md`, `00_jd_fetch.md`, `01_*.md`, `02_*.md`, `03_*.md`, `99_completion_checklist.md`)
+- All pipeline scripts (`config.py`, `yaml_to_pdf.py`, `resume_parseability.py`, `sync_to_obsidian.py`, `organize_applications.py`, etc.)
+- The ENTIRE `renderers/` directory
+- `okf/base_files/`, `okf/project_catalog.yaml`, `okf/project_mappings.yaml`, `okf/skill_mappings.yaml`
+- `requirements.txt`, `.gitignore`, `llm-cv.code-workspace`
+
+**Writable (freely edit, recompile, refine):** Only generated files inside `/home/sagar/Applications/[Company] — [Role]/` — `Resume.yaml`, `Resume.tex`/`SAGAR_MARTHANDAN_Resume.tex`/`SAGAR_MARTHANDAN_Lebenslauf.tex`, `Cover_Letter.yaml`, `Cover_Letter.tex`, all `.pdf` outputs, `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml`.
+
+**The `.yaml` and `.tex` files in the application folder are the model's workspace. The skill infrastructure is the locked factory — do not touch. If a user request requires modifying skill files, refuse and explain they are read-only. This rule has no exceptions.**
 
 ## Pipeline Overview
 
-```
-                        JD + Base Resume
-                               │
-                               ▼
-   Step 1: Setup & ATS Archival ──► ATS_Report.yaml + Job_Description.pdf
-         │
-         ├───► [LLM Project Ranking: Agent reads okf/project_catalog.yaml]
-         │     └───► Ranks 15 projects → top 6 for this JD
-         │     └───► Generates: project_info.md (Tailored Projects List)
-         │
-         ▼
-  Step 2: Resume & Visual Audit ──► Reads tailored project_info.md
-         │                           └───► Generates: Resume.yaml/pdf/tex
-         ▼
-  Step 3: Cover Letter ───────────► Reads tailored project_info.md
-                                     └───► Generates: Cover_Letter.yaml/pdf/tex
-         │
-         ▼
-Post-Pipeline: Obsidian Sync + Sort ──► Runs sync_to_obsidian.py --sort
-                                     └───► Targeted sync + moves folder to
-                                         /home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/
-```
+Step 1: ATS analysis + JD archival + LLM project ranking → `ATS_Report.yaml`, `Job_Description.pdf`, `project_info.md`
+Step 2: Resume rewrite + layout audit + parseability audit → `Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.pdf`
+Step 3: Cover letter → `Cover_Letter.pdf`
+Post: Obsidian sync + sort → moves folder to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
 
-- **Base Files Directory (Self-Contained):**
-  - **English:** `okf/base_files/english/` — archetype-specific base resumes:
-    - `resume_data_engineer.md` (Data Engineer archetype)
-    - `resume_data_analyst.md` (Data Analyst archetype)
-    - `resume_analytics_engineer.md` (Analytics Engineer archetype)
-    - `resume_ai_data_engineer.md` (AI Data Engineer archetype)
-    - `resume.md` (generic fallback for unmatched archetypes)
-  - **German:** `okf/base_files/german/` — same naming with `_de` suffix (e.g. `resume_data_engineer_de.md`), with `resume_de.md` as fallback.
-  - The pipeline detects the JD's primary role archetype in Step 1 and loads the matching base resume to maximize pre-rewrite ATS scores.
-  - **Project Catalog:** `okf/project_catalog.yaml` — condensed catalog of 15 projects, each with title, description, business_problem, key_metrics, transferable_skills, technologies, archetypes, repo_url, 8-10 bullet points, and keywords. This is the single source of truth for all project data. The agent reads this catalog in Step 1 and uses LLM judgment to rank the top 6 projects for the JD, weighing `business_problem`, `key_metrics`, and `transferable_skills` alongside tool overlap. `key_metrics` is the authoritative metric source — cite it verbatim; never invent numbers beyond it.
-- **Python Installation:** Python 3.10+ with all dependencies pre-installed in a project-local virtual environment at `/home/sagar/Skills/llm-cv/.venv/`. **All pipeline scripts MUST be invoked with the venv Python binary** — do NOT use the system `python3`. The venv interpreter path is the absolute path `/home/sagar/Skills/llm-cv/.venv/bin/python` — use this exact path verbatim in every command, regardless of the current working directory. Dependencies: `pyyaml`, `reportlab`, `pypdf` (see [requirements.txt](file:///home/sagar/Skills/llm-cv/requirements.txt)). The venv is gitignored and already provisioned on this machine — do NOT run `pip install` during a pipeline run.
-- **Working Directory:** `/home/sagar/Applications/` (absolute path — always create application folders here, never relative to the agent's CWD)
-- **Pipeline Script Structure:**
-  - `yaml_to_pdf.py` — entry point; routes YAML files to the correct renderer
-  - `okf/project_catalog.yaml` — Condensed project catalog (15 projects with bullets, keywords, tech stack, archetypes, repo URL); read by the agent in Step 1 for LLM-based ranking
-  - `sync_to_obsidian.py` — Syncs application data to Obsidian vault as linked notes for graph-view navigation (run after Step 3)
-  - `renderers/utils.py` — shared utilities (`escape_latex`, color constants, `run_pdflatex`, font registration including Calibri)
-  - `renderers/resume_common.py` — shared resume helpers (`HEADERS`, `get_resume_language`)
-  - `renderers/resume.py` — Resume renderer dispatcher (reads `render_mode` + `resume_style`, routes to 4 renderer combinations)
-  - `renderers/resume_latex_us.py` — Resume LaTeX renderer (US style) + parse-integrity audit
-  - `renderers/resume_reportfallback_us.py` — Resume ReportLab renderer (US style, LM Roman 10 font)
-  - `renderers/resume_latex_german.py` — Resume LaTeX renderer (German style: Lebenslauf section order)
-  - `renderers/resume_reportfallback_german.py` — Resume ReportLab renderer (German style, LM Roman 10, same German section order)
-  - `renderers/cover_letter.py` — Cover Letter renderer dispatcher (reads `render_mode`, routes to latex or reportfallback)
-  - `renderers/cover_letter_latex.py` — Cover Letter LaTeX renderer
-  - `renderers/cover_letter_reportfallback.py` — Cover Letter ReportLab renderer (LM Roman 10 font, same layout as LaTeX)
-  - `renderers/job_description.py` — Job Description renderer (ReportLab only)
-  - `renderers/ats_report.py` — ATS Report renderer (ReportLab only)
-  - `renderers/parseability_report.py` — Parseability Report renderer (ReportLab only, LM Roman 10)
-  - `resume_parseability.py` — ATS parse-integrity audit script; checks PDF text layer for unicode corruption, keyword recovery, section headers, and contact info extraction; outputs `Parseability_Report.yaml` + `Parseability_Report.pdf` (run after resume compilation in Step 2). If the audit fails, automatically re-compiles the resume with the ReportLab fallback renderer (style-aware) and re-audits. Use `--no-recovery` to disable.
-  - `organize_applications.py` — Sorts application folders into a Year/Month/Date tree (run after Obsidian sync)
+- **Base Files:** `okf/base_files/english/` (archetype-specific: `resume_data_engineer.md`, `resume_data_analyst.md`, `resume_analytics_engineer.md`, `resume_ai_data_engineer.md`, `resume.md` fallback). German: same with `_de` suffix, `resume_de.md` fallback. Step 1 detects archetype and loads matching base.
+- **Project Catalog:** `okf/project_catalog.yaml` — 15 projects with title, description, business_problem, key_metrics, transferable_skills, technologies, archetypes, repo_url, bullets, keywords. Single source of truth. `key_metrics` is authoritative — cite verbatim, never invent.
+- **Python:** `/home/sagar/Skills/llm-cv/.venv/bin/python` — use this exact path verbatim. Dependencies: `pyyaml`, `reportlab`, `pypdf`. Do NOT run `pip install`.
+- **Working Directory:** `/home/sagar/Applications/` (absolute path — never relative to agent CWD).
+- **Key Scripts:** `yaml_to_pdf.py` (entry point), `resume_parseability.py` (ATS parse audit, auto-recovers via ReportFallback), `sync_to_obsidian.py` (Obsidian sync), `organize_applications.py` (date tree sort). Renderers in `renderers/` dispatch by `render_mode` + `resume_style`.
 
 ## General Writing & Style Rules (Stop-Slop)
 
@@ -106,23 +44,29 @@ To ensure all generated text sounds authentic and human, the pipeline step outpu
 - **Zero Em-Dashes:** Punctuation em-dashes (`—`) are prohibited; use commas or periods.
 - **No Throat-Clearing:** Start sentences directly. Cut preview/recap statements (e.g., *"at its core"*, *"it is worth noting"*, *"the reality is"*).
 
+
+## YAML Safety Rules (Non-Negotiable)
+
+JD text, resume content, and cover letter prose frequently contain characters that break YAML parsing (`: ` followed by space, leading `-`, `#`, unbalanced quotes, `>`/`|` at start of value). To prevent parse failures:
+
+1. **Quote all string values** that could contain `:`, `-`, `#`, `>`, `|`, `{`, `}`, `[`, `]`, or quotes. Use double quotes: `company: "SAP SE"`.
+2. **Use block scalars (`|`)** for multi-line content (JD overview paragraphs, bullet text, cover letter paragraphs):
+   ```yaml
+   content: |
+     The data engineer will build and maintain pipelines...
+   ```
+3. **Never paste raw text directly into a YAML value without quoting or block-scaling it.** JDs, project summaries, and cover letter paragraphs almost always contain colons or dashes that will break parsing.
+4. **After writing each YAML file**, validate it by running `/home/sagar/Skills/llm-cv/.venv/bin/python -c "import yaml; yaml.safe_load(open('FILENAME'))"` before proceeding to compilation. If it fails, fix the quoting and re-validate.
 ## Anti-Hallucination Principles (Pipeline-Wide, Non-Negotiable)
 
-The pipeline generates real application documents that represent a real candidate to real employers. Fabricated content is a integrity violation, not a styling issue. These rules apply to every step and every output:
+Fabricated content is an integrity violation, not a styling issue. These rules apply to every step and every output:
 
-1. **Projects:** Only the 15 projects in `okf/project_catalog.yaml` exist. Do not invent, split, merge, derive, or rename projects. Every project on the resume, in `project_info.md`, in the ATS report's `project_swap_directive`, and in the cover letter must map 1:1 to a catalog entry by exact `title` match. A bare profile URL (`github.com/SagarMarthandan` without a repo path) is a red flag that the project was hallucinated.
-
-2. **Metrics:** Quantified numbers (record counts, percentages, latency reductions, throughput, R² values, etc.) must originate from the project catalog bullets or the base resume's experience bullets. Do not fabricate, round, or "plausibly estimate" metrics. If the catalog does not contain a metric for a given aspect, omit that metric rather than inventing one. Reframing an existing catalog metric for the JD context (e.g., "8.6M events" → "large-scale event processing") is allowed; inventing a new number is not.
-
-3. **Technologies & Skills:** Only list tools/technologies that appear in the project catalog (under `technologies` or `keywords`), the base resume's technical skills section, or the JD's required skills. Do not add tools the candidate has never used to the technical skills section. The Step 1 `skill_gaps` list must contain only skills explicitly required by the JD text, not skills the model thinks "might be relevant."
-
-   > **User-Directed Skill Additions (Step 2 Carve-Out):** The above restriction on adding skills is **waived when the user explicitly directs the addition of specific skills** via the Step 2 "Keyword Stuffing" prompt (see `02_resume_and_visual_audit.md` §"First Action: Keyword Stuffing Decision"). When the user chooses to add missing keywords or specifies skills to add, the model is **executing a user directive, not fabricating**. The user assumes full responsibility for skills added via this mechanism. The anti-hallucination guardrail remains fully enforced for all other aspects (projects, metrics, employment history, repo URLs, company facts). This carve-out exists because real ATS systems are keyword matchers — the user may strategically choose to include skills they can learn or have adjacent experience with, to pass ATS filters. The model's role is to execute the user's choice, not to judge it.
-
-4. **Company & Role Facts:** Company name, job title, and location must be extracted verbatim from the JD text. Do not paraphrase, "correct," or embellish the company name or job title. The cover letter recipient address must come from the JD text; if the JD does not include a street address, use the company name and city only, do not fabricate a street address.
-
-5. **Employment History:** Employment dates, company names, and job titles from the base resume are immutable facts. Do not alter, merge, split, or redate employment entries. The "Independent Data Engineering & Professional Development" period (01/2023–04/2025) is self-directed learning, not employment, and must never be framed as production experience.
-
-6. **Repo URLs:** Every `repo_url` in `Resume.yaml` and `project_info.md` must be copied verbatim from the catalog's `repo_url` field. Do not construct, shorten, or guess URLs. If a catalog project has an empty `repo_url` (e.g., RACEYARD), omit the `[GitHub]` link entirely rather than fabricating one.
+1. **Projects:** Only the 15 in `okf/project_catalog.yaml`. No inventing/splitting/merging/deriving. Every project must map 1:1 to a catalog entry by exact `title` match. A bare profile URL without a repo path is a hallucination red flag.
+2. **Metrics:** From catalog `key_metrics` or base resume bullets only. No fabrication or "plausible estimates." Reframing existing metrics for JD context is allowed; inventing new numbers is not. If no metric exists, omit it.
+3. **Technologies & Skills:** Only from catalog (`technologies`/`keywords`), base resume skills, or JD required skills. `skill_gaps` must contain only JD-explicitly-required skills. **User-Directed Carve-Out:** If the user chooses "Add all" or "Selective" in Step 2 keyword stuffing, adding those skills is a user directive, not fabrication. The guardrail remains enforced for all other aspects.
+4. **Company & Role Facts:** Verbatim from JD. No paraphrasing or embellishing. Cover letter recipient address from JD text only; if no street address, use company name + city.
+5. **Employment History:** Dates/titles from base resume are immutable. The "Independent Data Engineering & Professional Development" period (01/2023–04/2025) is self-directed learning, never production experience.
+6. **Repo URLs:** Verbatim from catalog's `repo_url` field. No constructing or guessing. If empty (e.g., RACEYARD), omit the `[GitHub]` link entirely.
 
 ## Input Required
 
@@ -131,56 +75,32 @@ The user must provide:
 
 ## First Action: Select Pipeline Options
 
-Before executing any pipeline step, ask the user **four** questions in a single `ask` call (all four as separate questions in the same batch). These selections configure the entire pipeline run:
+Ask the user **four** questions in a single `ask` call (all four as separate questions in the same batch). These selections configure the entire pipeline run:
 
-### Question 1: Render Mode
+| # | Setting | Header | Options |
+|---|---------|--------|---------|
+| 1 | Render mode | "Render mode" | `LaTeX` — pdflatex (primary; produces .tex + PDF; font is LMRoman10 via lmodern, no preamble patching) / `ReportFallback` — ReportLab (no .tex; use ONLY when pdflatex unavailable) |
+| 2 | Resume style | "Resume style" | `US Style` — Summary→Skills→Projects→Experience→Education→Languages / `German Style` — Summary→Experience→Education→Skills→Languages (projects folded into experience as project_bullets under "Independent Data Engineering" entry ending Apr 2025; title is concrete role, never Architect/Lead/Manager) |
+| 3 | Application source | "Application source" | `Cold Apply` / `Referral` (prompt for contact) / `LinkedIn Connection` (prompt for contact) / `Direct` |
+| 4 | Language | "Language" | `English` (loads okf/base_files/english/) / `German` (loads okf/base_files/german/) |
 
-- **Question:** "Which render mode should the resume and cover letter use?"
-- **Header:** "Render mode"
-- **Options:**
-  - `LaTeX` — Compile via pdflatex (primary; REQUIRED unless pdflatex is genuinely unavailable). Produces a `.tex` source file alongside the PDF. The renderer's document template loads `\usepackage{lmodern}`, so the output font IS Latin Modern Roman 10 (LMRoman10) — no extra font setup, no preamble patching needed. Projects are rendered in `name --- [GitHub] --- summary` single-paragraph format directly by the renderer. The agent may optionally refine the prose post-compilation.
-  - `ReportFallback` — Compile via ReportLab using the LM Roman 10 TTF (installed locally). No `.tex` file is produced. Projects are rendered in the same `name --- [GitHub] --- summary` single-paragraph format automatically. Use ONLY when pdflatex is actually unavailable (verified by running it, not assumed).
-
-### Question 2: Resume Style
-
-- **Question:** "Which resume style should be used?"
-- **Header:** "Resume style"
-- **Options:**
-  - `US Style` — US-convention section order: Summary → Technical Skills → Projects → Professional Experience → Education → Spoken Languages.
-  - `German Style` — German Lebenslauf convention: Summary → Professional Experience → Education → Technical Skills → Spoken Languages. No separate Projects section — the 3 JD-aligned projects are folded into the Professional Experience section as `project_bullets` under an "Independent Data Engineering & Professional Development" entry (rendered in `name --- [GitHub] --- summary` format with quantified metrics), plus a 4th plain-text bullet for other skills/tools. The entry date ends at April 2025 (candidate is now studying economics). The title uses a concrete role (e.g., `Data Engineer`, `Analytics Engineer`) — never `Architect`/`Lead`/`Manager`. Required for German market applications.
-
-### Question 3: Application Source
-
-- **Question:** "How are you applying to this position?"
-- **Header:** "Application source"
-- **Options:**
-  - `Cold Apply` — No prior connection to the company. If the ATS vendor is known (not Unknown), a warning will advise checking your network for weak-tie referrals before submitting.
-  - `Referral` — You have a referral contact inside the company. You will be prompted for the contact name/role.
-  - `LinkedIn Connection` — You found this via a LinkedIn connection. You will be prompted for the contact name/role.
-  - `Direct` — Direct application via company website or email.
-
-### Question 4: Output Language
-
-- **Question:** "Which language should the resume and cover letter be in?"
-- **Header:** "Language"
-- **Options:**
-  - `English` — Generate all documents in English. Loads base resume from `okf/base_files/english/`.
-  - `German` — Generate all documents in German. Loads base resume from `okf/base_files/german/`. Required for German market applications where the JD is in German.
-
-> **Note:** The language selection overrides the JD language auto-detection. If the JD is in German but the user selects English, the resume and cover letter will be in English. This is useful for international roles at German companies.
+> Language selection overrides JD language auto-detection. Useful for international roles at German companies.
 
 ### Storing the Selections
 
-All four selections MUST be written as top-level keys in the relevant YAML files:
-- `render_mode: latex` or `render_mode: reportfallback` → `Resume.yaml` and `Cover_Letter.yaml`
-- `resume_style: us` or `resume_style: german` → `Resume.yaml`
+Write all four as top-level keys in the relevant YAML files:
+- `render_mode: latex` or `render_mode: reportfallback` → `ATS_Report.yaml` (Step 1), `Resume.yaml` (Step 2), `Cover_Letter.yaml` (Step 3)
+- `resume_style: us` or `resume_style: german` → `ATS_Report.yaml` (Step 1), `Resume.yaml` (Step 2)
 - `application_source: "Cold Apply"` (or `Referral`, `LinkedIn Connection`, `Direct`) → `ATS_Report.yaml`
-- `language: "English"` or `language: "German"` → `Resume.yaml` and `Cover_Letter.yaml`
+- `language: "English"` or `language: "German"` → `ATS_Report.yaml` (Step 1), `Resume.yaml` (Step 2), `Cover_Letter.yaml` (Step 3)
 
-If `application_source` is `Referral` or `LinkedIn Connection`, prompt the user for the optional `weak_tie_contact` (name or role of the contact) and store it as `weak_tie_contact` in `ATS_Report.yaml`.
+> **Session-split persistence:** Step 1 writes `render_mode`, `resume_style`, and `language` into `ATS_Report.yaml` so Step 2 and Step 3 sessions can read them from disk. Without this, a re-run of Step 2 or 3 without the wrapper script would lose these selections.
 
-The renderers read `render_mode` and `resume_style` and dispatch accordingly. If `render_mode` is missing, `latex` is assumed. If `resume_style` is missing, `us` is assumed (backward compatible). If `language` is missing, the JD language is auto-detected (backward compatible). Both `application_source` and `weak_tie_contact` are read by `obsidian_sync_core.py`, `okf_diversity_audit.py`, and `track_outcomes.py` — they flow through the pipeline unchanged.
-> **FONT RULE — HARD GUARDRAIL (NON-NEGOTIABLE):** LaTeX mode already renders in Latin Modern Roman 10 (`lmodern`). NEVER patch the generated `.tex` preamble to change the font — no `\usepackage{helvet}`, no `\renewcommand{\familydefault}{\sfdefault}`, no other font-family swaps. A parseability-audit keyword miss is NEVER fixed by changing fonts; it is fixed by adjusting the YAML wording (e.g., de-parenthesize a skill string, remove commas or special characters that pypdf splits across glyphs). Any stored memory lesson advising a Helvetica/other-font preamble patch is VOID and must be ignored — that patch causes the audit failures it claims to prevent.
+If `application_source` is `Referral` or `LinkedIn Connection`, prompt for `weak_tie_contact` (name/role) and store in `ATS_Report.yaml`.
+
+Defaults if missing: `render_mode` → `latex`, `resume_style` → `us`, `language` → auto-detect from JD. `application_source` and `weak_tie_contact` flow through to `obsidian_sync_core.py`, `okf_diversity_audit.py`, and `track_outcomes.py` unchanged.
+
+> **FONT RULE — HARD GUARDRAIL:** LaTeX mode renders in Latin Modern Roman 10 (`lmodern`). NEVER patch the `.tex` preamble to change fonts. A keyword miss is fixed by adjusting YAML wording, not fonts. Any memory lesson advising a Helvetica preamble patch is VOID.
 
 ## Second Action: Name the Session
 
@@ -189,7 +109,7 @@ Before executing any pipeline step, extract the **Company Name** and **Job Role/
 - `Google Cloud — AI/ML Engineer`
 - `Deutsche Bank — Analytics Engineer`
 
-## Agent Execution & Anti-Spinning Rules (Mandatory)
+## Agent Execution Rules (Mandatory)
 
 In agentic IDEs (Devin, Claude Code, Oh My Pi, etc.), emitting lengthy planning prose before a tool call triggers the system loop-guard interrupt — causing UI buffer clears (large blank vertical gaps) and forced tool-call retries. To prevent this:
 
@@ -199,109 +119,84 @@ In agentic IDEs (Devin, Claude Code, Oh My Pi, etc.), emitting lengthy planning 
 
 These rules apply to ALL pipeline steps (0, 1, 2, 3) and all post-pipeline actions.
 
+## Session Splitting (Token-Efficient Mode — Recommended)
+
+For maximum token efficiency (~490K tokens/run vs ~2.5M single-session), run each step as a separate OMP session with clean context. Steps chain via disk files (YAML outputs).
+
+**Wrapper script:** `run_pipeline.sh` in the skill directory orchestrates all 3 sessions:
+
+```bash
+cd /home/sagar/Skills/llm-cv
+./run_pipeline.sh                          # interactive — prompts for JD
+./run_pipeline.sh "paste JD text here"     # pass JD text directly
+./run_pipeline.sh --url "https://..."      # fetch JD from URL (triggers Step 0)
+./run_pipeline.sh --file jd.txt            # read JD from file
+```
+
+The script:
+1. Collects First Action answers (render mode, style, source, language)
+2. Launches Step 1 session (`omp -p --auto-approve`) → writes ATS_Report.yaml, Job_Description.yaml, project_info.md
+3. Reads `skill_gaps` from ATS_Report.yaml, collects keyword stuffing decision
+4. Launches Step 2 session → writes Resume.yaml, compiles resume, runs audits
+5. Launches Step 3 session → writes Cover_Letter.yaml, compiles, runs Obsidian sync
+
+Each session starts with a clean context — no accumulation from previous steps. The YAML schemas are the contract between steps. Prompt templates documented in `prompts/step1.md`, `prompts/step2.md`, `prompts/step3.md`.
+
+**Single-session mode** (below) is still available for interactive use where the agent handles all steps in one conversation.
+
+
 ## Execution — Run All 3 Steps Sequentially
+> **Lazy Loading:** Read only the step doc for the step you're executing. Do NOT read all step docs at once — each step doc is read on-demand when that step begins. This saves context tokens.
+
 
 ### STEP 0 (optional): JD Fetch — URL → Job Description Text
 
-Run Step 0 **only** when the user provides a job posting URL (or asks to "scrape this posting" / "fetch this job link") instead of pasting raw JD text. If the user pastes raw JD text directly, **skip Step 0** and go straight to Step 1.
+Run **only** when user provides a URL. Read `00_jd_fetch.md`. Fetches rendered page, extracts clean JD text, validates (role title + company + ≥2 section markers + >200 chars). JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio) → Jina Reader directly. Static/Unknown → `webfetch` first, Jina fallback. Manual paste is always the final fallback.
 
-Read and execute the full instructions in [00_jd_fetch.md](file:///home/sagar/Skills/llm-cv/00_jd_fetch.md).
-
-Fetches the rendered job posting from the URL, extracts the clean JD text, validates it against a JD-shape heuristic (role title + company + ≥2 JD section markers + >200 chars + not a login/error page), and hands the text to Step 1. Strategy routing: known JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio) go straight to Jina Reader (`https://r.jina.ai/<url>`) and skip the doomed local `webfetch` attempt; static / Unknown vendors try `webfetch` first then Jina. If both strategies fail (rate limit, login wall, failed validation), the user is prompted to paste the JD manually — manual paste is always available as the final fallback and is never locked out.
-
-**Output:** Clean JD text (handed to Step 1 as the "pasted JD text" input — Step 1's contract is unchanged), plus `source_url` and detected ATS vendor passed forward to Step 1. Cache entries are written to `okf/.jd_cache/<sha1(url)>.txt` (7-day TTL) for re-runs of the same URL.
+**Output:** Clean JD text + `source_url` + ATS vendor → handed to Step 1. Cache at `okf/.jd_cache/<sha1(url)>.txt` (7-day TTL).
 
 ---
 
 ### STEP 1: Setup, ATS Analysis & Job Description Archival
 
-Read and execute the full instructions in [01_ats_and_jd_archival.md](file:///home/sagar/Skills/llm-cv/01_ats_and_jd_archival.md).
+Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories × 25pts = 100; formatting is non-scored `formatting_quality` verdict), finds closest candidate city, ranks top 6 projects from `okf/project_catalog.yaml`. Score is informational — never blocks: `PROCEED` if ≥85, else `REVIEW` (Step 2 always proceeds).
 
-Parses and archives the job description, scores the base resume, performs location tailoring via web search to find the closest candidate city, and generates a tailored project list using LLM-based project ranking (the agent reads `okf/project_catalog.yaml` and ranks the top 6 projects for the JD using its own judgment).
+**Output:** `ATS_Report.yaml`, `ATS_Report.pdf`, `Job_Description.yaml`, `Job_Description.pdf`, `project_info.md` in `[Company Name] — [Job Role]/` folder.
 
-**ATS Scoring Model:** 4 equally-weighted categories of 25 points each (total = 100) — Keywords & Terminology, Experience Relevance, Technical Skills, Soft Skills & Language. Formatting is **not scored**; instead a non-scored `formatting_quality` verdict (`Excellent` / `Good` / `Average` / `Bad`) is emitted with suggested changes when `Average` or `Bad`. This score is informational only (self-graded, no measured correlation with real interview outcomes) — it never blocks the pipeline: `PROCEED` if total >= 85, else `REVIEW` (with `remedy_suggestions` populated for visibility, but Step 2 always proceeds).
-
-**Output:** `ATS_Report.yaml`, `ATS_Report.pdf`, `Job_Description.yaml`, `Job_Description.pdf`, and `project_info.md` in `[Company Name] — [Job Role]/` folder.
-
-**Naming Convention (Critical):** The application folder and session name MUST be `[Company Name] — [Job Role]` extracted from the JD. No arbitrary names or timestamps. See `01_ats_and_jd_archival.md` for details.
+**Naming:** Folder MUST be `[Company Name] — [Job Role]` from JD. No arbitrary names.
 
 ---
 
 ### STEP 2: Resume Rewrite & Visual Layout Audit
 
-Read and execute the full instructions in [02_resume_and_visual_audit.md](file:///home/sagar/Skills/llm-cv/02_resume_and_visual_audit.md).
+Read `02_resume_and_visual_audit.md`. Rewrites resume from ATS blueprint + project list. Compiles via LaTeX, layout audit, Stop-Slop check, post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
 
-Rewrites the resume based on the ATS Improvement Blueprint and the tailored project list. Compiles the resume via LaTeX, performs a visual layout audit and Stop-Slop check, updates the post-rewrite ATS score, and runs the parse-integrity audit (`resume_parseability.py`) to verify the PDF text layer is ATS-parseable.
-
-**Output:** `Resume.yaml`, `Layout_Audit_Report.yaml`, `SAGAR_MARTHANDAN_Resume.pdf` / `SAGAR_MARTHANDAN_Lebenslauf.pdf` (and `Resume_v2.pdf` / `Lebenslauf_v2.pdf` if needed), `Parseability_Report.yaml`, and `Parseability_Report.pdf`.
+**Output:** `Resume.yaml`, `Layout_Audit_Report.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`/`Lebenslauf.pdf`, `Parseability_Report.yaml`, `Parseability_Report.pdf`.
 
 ---
 
 ### STEP 3: Cover Letter Generation & Compilation
 
-Read and execute the full instructions in [03_cover_letter.md](file:///home/sagar/Skills/llm-cv/03_cover_letter.md).
+Read `03_cover_letter.md`. Formal Geschäftsbrief cover letter grounded in project metrics, compiled to PDF.
 
-Generates a formal, metric-grounded cover letter standard conforming to German Geschäftsbrief layout in the target JD language.
-
-**Output:** `Cover_Letter.yaml` and `SAGAR_MARTHANDAN_Cover_Letter.pdf` / `SAGAR_MARTHANDAN_Anschreiben.pdf`.
+**Output:** `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf`/`Anschreiben.pdf`.
 
 ---
 
 ## Post-Pipeline: Add One More Project
 
-After the pipeline completes, the user may ask to add an additional project to the resume (e.g., "add a 4th project", "add one more project"). Follow the procedure in [02_resume_and_visual_audit.md §"Optional: Add One More Project"](file:///home/sagar/Skills/llm-cv/02_resume_and_visual_audit.md).
-
-Summary: pick the next-ranked project from `project_info.md`, write it in the same `name --- [GitHub] --- summary` format, insert into `Resume.yaml` (`projects` list for US style, `project_bullets` for German style), recompile, and re-run the parse-integrity audit. The resume must stay on exactly one full page: if it spills to 2 pages, trim or swap a weaker project; if it still has trailing whitespace, keep adding/expanding until the page is full.
-
----
+Follow `02_resume_and_visual_audit.md` §"Optional: Add One More Project". Pick next-ranked project from `project_info.md`, write in `name --- [GitHub] --- summary` format, insert into `Resume.yaml`, recompile, re-run parseability audit. Must stay on one page.
 
 ## Error Handling
 
-If the compilation fails:
-1. Check stdout/stderr console logs for PyYAML parser errors or ReportLab layout exceptions.
-2. Verify YAML formatting is correct (e.g. check for unquoted colons, incorrect indentations).
-3. If there's a layout overflow, trim the text length in the resume YAML.
+1. Check stdout/stderr for PyYAML parser errors or ReportLab layout exceptions.
+2. Verify YAML formatting (unquoted colons, incorrect indentations).
+3. Layout overflow → trim text length in resume YAML.
 
 ## Completion Checklist
 
-After all 3 steps complete, verify:
-- [ ] `ATS_Report.yaml` exists in the company folder with pre and post rewrite scores, including `closest_candidate_location`, `application_source`, and `weak_tie_contact` (if applicable)
-- [ ] `ATS_Report.pdf` is generated and `post_rewrite_ats_score` block is populated
-- [ ] `ATS_Report.yaml` contains a non-scored `formatting_quality` verdict (pre- and post-rewrite) with `suggestions` populated only if verdict is `Average` or `Bad`
-- [ ] `Job_Description.yaml` (with `location` key) & `Job_Description.pdf` are generated
-- [ ] `project_info.md` (tailored project list) is generated in the company folder
-- [ ] `Resume.yaml` & `SAGAR_MARTHANDAN_Resume.pdf` / `SAGAR_MARTHANDAN_Lebenslauf.pdf` are generated with the tailored closest location
-- [ ] `SAGAR_MARTHANDAN_Resume.tex` / `SAGAR_MARTHANDAN_Lebenslauf.tex` & `SAGAR_MARTHANDAN_Cover_Letter.tex` / `SAGAR_MARTHANDAN_Anschreiben.tex` are preserved in the folder
-- [ ] `Layout_Audit_Report.yaml` is generated with all eye-test diagnostics at Pass status
-- [ ] `Parseability_Report.yaml` & `Parseability_Report.pdf` are generated with overall status PASS (100% keyword recovery, all section headers detected, 5/5 contact fields, no unicode corruptions)
-- [ ] `Cover_Letter.yaml` & `SAGAR_MARTHANDAN_Cover_Letter.pdf` / `SAGAR_MARTHANDAN_Anschreiben.pdf` are generated with the tailored closest location in the sender address and date fields
-- [ ] Professional Experience bullets are single-line, <= 105 chars (per 02 §Layout Constraints)
-- [ ] Projects in `name --- [GitHub] --- summary` format, summary <= 300 chars (<= 280 German), <= 3 lines (per 02 §Layout Constraints)
-- [ ] Summary is exactly 2 lines, <= 200 chars (<= 170 German) (per 02 §Layout Constraints) — STRICT, no compromise
-- [ ] Resume fills exactly ONE full page: content reaches the bottom margin (<= 1 line of trailing whitespace), no empty gaps between sections, no spill to page 2 (per 02 §2.5 Space-Fill Directive)
-- [ ] Resume font is Latin Modern Roman 10 (lmodern) — never patched to Helvetica or any other font (per SKILL §Font Rule)
-- [ ] Cover letter fits one page, 250–320 words (180–240 German) (per 03 §Structure)
-- [ ] All files match the language selected by the user in the First Action (not auto-detected from JD) and comply with the Stop-Slop guidelines
-- [ ] `Resume.yaml` contains `keyword_stuffing` and `user_directed_skills` fields reflecting the user's Step 2 First Action choice
-- [ ] If `keyword_stuffing: true`, all `skill_gaps` (or user-specified skills) were added to the technical skills section as directed
-- [ ] All projects in `project_info.md` and `Resume.yaml` match catalog titles in `okf/project_catalog.yaml` exactly (Step 1 Post-Ranking Validation and Step 2 Post-Generation Anti-Hallucination Validation both PASS — zero hallucinated projects)
-- [ ] All metrics in resume and cover letter are sourced from catalog bullets or base resume (no fabricated numbers)
-- [ ] All `repo_url` values are copied verbatim from the catalog (no bare profile URLs or constructed URLs)
-- [ ] `sync_to_obsidian.py` has synced the application to the Obsidian vault (check `<vault>/Job Search/` for notes)
-- [ ] `sync_to_obsidian.py --sort` has moved the folder into `/home/sagar/Applications/YYYY/MM/DD/[Company Name] — [Job Role]/`
+Read `99_completion_checklist.md` — run it only after all 3 steps complete. Do not read it during pipeline execution (it wastes context tokens).
 
 ## Self-Refresh
 
-When the user says "llm-cv refresh" or similar:
-
-1. **Identify this CLI/harness.** Determine what CLI environment you're running under (Devin, Claude Code, agy, opencode, etc.) and its skill/workflows directory location.
-
-2. **Locate the ground truth `SKILL.md`.** First check `skills/llm-cv/SKILL.md` on the local filesystem. If that file is missing, unreadable, or appears stale, pull the latest version directly from the GitHub repository at **https://github.com/SagarMarthandan/llm-cv** (path: `skills/llm-cv/SKILL.md`) via `webfetch` or `git pull` — that GitHub repo is the canonical source of truth and may be used as a fallback whenever local ground truth files are not available.
-
-3. **Copy `SKILL.md`** from the located ground truth (local or GitHub) to this CLI's active skill store path.
-
-4. **Confirm the load** via this CLI's skill resolution mechanism (e.g. `skill://llm-cv` if supported, otherwise by reading back the destination file).
-
-5. **Ingest all supporting docs** — read every `.md` file in `skills/llm-cv/` (the step files 00_*.md, 01_*.md, 02_*.md, 03_*.md, and any others) to load the full pipeline into context. If any supporting doc is missing locally, fetch it from **https://github.com/SagarMarthandan/llm-cv** using the same fallback as step 2.
-
-Do not perform any other actions.
+When the user says "llm-cv refresh": locate ground truth `SKILL.md` (local `skills/llm-cv/SKILL.md` or GitHub `https://github.com/SagarMarthandan/llm-cv`), copy to active skill store, confirm load, then ingest all supporting `.md` docs (00-03, 99). Do not perform any other actions.

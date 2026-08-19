@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.3.0 — 2026-08-19
+
+### Added
+
+- **Session splitting (`run_pipeline.sh`):** Wrapper script that runs each pipeline step as a separate OMP session with clean context, chaining via disk files. Reduces token consumption by 84% (~400K tokens/run vs ~2.5M single-session). Collects First Action answers and keyword stuffing decision outside the agent, passes them via prompt. Each session starts with `omp -p --auto-approve` and a step-specific prompt.
+- **Prompt templates (`prompts/`):** Reference documentation for the 3 session prompts used by `run_pipeline.sh` (`step1.md`, `step2.md`, `step3.md`). Each documents the prompt structure, what the session reads/writes, and token budget.
+- **Completion checklist extraction (`99_completion_checklist.md`):** Moved the 30+ item completion checklist out of `SKILL.md` into a separate file read only at pipeline end. Saves ~2,500 base tokens across 25+ API calls where it's not needed.
+- **Lazy loading directives:** Each step doc ends with `**Next:** Proceed to Step N — read N_*.md`, chaining steps without loading all docs at once. `SKILL.md` instructs: "Read only the step doc for the step you're executing."
+- **First Action persistence in `ATS_Report.yaml`:** `render_mode`, `resume_style`, and `language` are now written as top-level keys in `ATS_Report.yaml` by Step 1, so Step 2 and Step 3 sessions can read them from disk. Enables manual re-runs of individual steps without the wrapper script.
+
+### Changed
+
+- **SKILL.md slimmed 49%** (32,121 → 16,381 bytes): Condensed First Action questions to 4-row table, anti-hallucination principles to tight bullets, pipeline overview to 4-line summary, read-only guardrail to compact list, execution step descriptions condensed, post-pipeline/error handling/self-refresh sections condensed.
+- **Step docs slimmed 50-62%:**
+  - `00_jd_fetch.md`: 9,466 → 4,159 bytes (56%) — condensed validation heuristic, strategy routing, removed "What this step does NOT do" section.
+  - `01_ats_and_jd_archival.md`: 23,591 → 10,113 bytes (57%) — condensed ATS scoring matrix, improvement blueprint, placement weighting, vendor inference. YAML schemas preserved verbatim.
+  - `02_resume_and_visual_audit.md`: 42,792 → 16,342 bytes (62%) — removed LaTeX example code blocks, condensed space-fill directive to numbered list, converted layout constraints to table, consolidated compilation commands into single code blocks.
+  - `03_cover_letter.md`: 9,936 → 4,984 bytes (50%) — condensed narrative rules to bullets, consolidated compilation + sync commands.
+- **De-duplicated guardrails:** Repeated guardrail blocks (READ-ONLY, AGENT EXECUTION, YAML SAFETY, ANTI-HALLUCINATION, Stop-Slop) in all 4 step docs replaced with 1-line `> **Rules:** Follow SKILL.md §"..."` references. Each step doc keeps only its writable-files list.
+- **Step 2 inputs:** Now explicitly reads `render_mode`, `resume_style`, `language`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, `closest_candidate_location` from `ATS_Report.yaml` (was implicit before).
+- **Step 3 inputs:** Now explicitly reads `render_mode`, `language`, `closest_candidate_location`, `application_source`, `weak_tie_contact`, `role_archetype` from `ATS_Report.yaml`.
+
+### Token Optimization Summary
+
+| Mode | Per run | 4 runs | Quota (60M) | Resumes/month |
+|:---|:---|:---|:---|:---|
+| Original (v1.2.0) | ~2.5M | ~10M | 16.7% | ~24 |
+| Single-session (doc slimming) | ~2.0M | ~8M | 13.3% | ~30 |
+| Session-split (all optimizations) | ~400K | ~1.6M | 2.7% | ~149 |
+
+### Fixed
+
+- **Missing YAML Safety Rules section:** Added `## YAML Safety Rules (Non-Negotiable)` section to `SKILL.md` — step docs referenced it but it didn't exist.
+- **Missing Read-Only Guardrail header:** Added `## Read-Only Guardrail (Non-Negotiable)` section header to `SKILL.md` to match step doc references.
+- **Renamed Agent Execution section:** `## Agent Execution & Anti-Spinning Rules (Mandatory)` → `## Agent Execution Rules (Mandatory)` to match step doc references.
+
 ## v1.2.0 — 2026-08-18
 
 ### Added
