@@ -218,7 +218,7 @@ The agent reads this catalog in Step 1 and ranks the top 6 projects for the JD. 
 | File | Role |
 |:---|:---|
 | `okf/project_catalog.yaml` | 15-project catalog (single source of truth) |
-| `okf/base_files/english/` | 5 English archetype base resumes + 1 generic fallback |
+| `okf/base_files/english/` | 4 English archetype base resumes + 1 generic fallback (5 files) |
 | `okf/base_files/german/` | 1 German base resume (covers all archetypes) |
 | `okf/project_mappings.yaml` | Obsidian sync project name mappings |
 | `okf/skill_mappings.yaml` | Obsidian sync skill mappings |
