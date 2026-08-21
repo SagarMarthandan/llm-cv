@@ -33,6 +33,8 @@ user_directed_skills: []  # populated only if Selective
   - `Add all`: Add all `skill_gaps` to technical skills (user directive).
   - `Selective`: Add only `user_directed_skills` + genuine skills from `skill_gaps`.
   - `No stuffing`: Add only genuine skills (catalog/base resume). Note real gaps without fabricating.
+- **Technical skills selection (ANTI-STUFFING):** Include only skills the candidate genuinely knows that are relevant to this JD. Do NOT list every technology from every project. Prioritize: (1) JD-required skills the candidate has, (2) core tools from selected projects, (3) adjacent skills that strengthen the profile. Omit irrelevant technologies even if known. A focused, credible skills block reads better than an exhaustive inventory that looks like ATS keyword stuffing.
+- **Project tools:** List only the 3-5 most JD-relevant tools used in that project, not every technology from the catalog entry. Irrelevant tools dilute the signal.
 - **Language:** Translate fully to user-selected language (not auto-detected). Set `language` key in `Resume.yaml`.
 - **Location:** Read `closest_candidate_location` from `ATS_Report.yaml`, set as `contact_info.location`.
 - **Employment dates:** Copy exactly from base resume. Never generalize or omit.
@@ -73,7 +75,7 @@ Resume MUST fill exactly ONE full A4 page — no empty space at bottom, no spill
 | Element | English | German |
 |---------|---------|--------|
 | Summary | 2 lines, ≤200 chars | 2 lines, ≤170 chars |
-| Project summary | ≤300 chars, ≤3 lines | ≤280 chars, ≤3 lines |
+| Project summary | exactly 3 lines, 180-240 chars | exactly 3 lines, 160-220 chars |
 | Experience bullets | ≤105 chars, 1 line each | same |
 | IBM bullets | exactly 4 | exactly 4 |
 | Staff 4 bullets | exactly 2 | exactly 2 |
@@ -81,16 +83,16 @@ Resume MUST fill exactly ONE full A4 page — no empty space at bottom, no spill
 
 - **Filenames:** English → `SAGAR_MARTHANDAN_Resume.pdf`/`.tex`. German → `SAGAR_MARTHANDAN_Lebenslauf.pdf`/`.tex`.
 - **Summary:** No tool-listing (tools go in Technical Skills). Positioning statement: who you are + what you do + outcome. Must NOT lead with standalone year-count tied to IBM. IBM (08/2014–12/2018) = only professional production experience, stated as background credential. Independent period (01/2023–04/2025) = self-directed learning, never "production experience."
-- **Projects:** Select best 3-4 from 6 in `project_info.md`. Format: `name --- [GitHub] --- summary` (single paragraph, renderer joins bullets into prose). Name/em-dashes/link excluded from char count. Write 3-5 bullets per project targeting 250-300 chars (230-280 German). Each bullet: distinct outcome, tool, or metric.
+- **Projects:** Select best 3-4 from 6 in `project_info.md`. Format: `name --- [GitHub] --- summary` (single paragraph, renderer joins bullets into prose). Name/em-dashes/link excluded from char count. Write exactly 3 bullets per project targeting 180-240 chars (160-220 German). Hard limit: 3 rendered lines, no more. Each bullet: one outcome + its key metric. No padding, no tech-listing (tools go in the `tools` field and Technical Skills section).
 - **Render mode:** `latex` (default) or `reportfallback`. ReportFallback skips §4 and Steps B/C — single compile produces final PDF.
 
 ## 2.5 Space-Fill Directive (MANDATORY — One Full Page)
 
 After initial compilation, resume MUST be full: content reaches bottom margin, ≤1 line trailing whitespace, no page-2 spill. If under-filled:
 
-0. **Maximize character budgets first** (zero-risk): Summary → 200/170 chars. Projects → 250-300/230-280 chars. Experience bullets → 100-105 chars.
+0. **Maximize character budgets first** (zero-risk): Summary → 200/170 chars. Projects → 180-240/160-220 chars. Experience bullets → 100-105 chars.
 1. **Add technical skills** from `skill_gaps` (respect `keyword_stuffing` decision).
-2. **Add one more project** from `project_info.md` (next-ranked, not already in resume). Same format, 3-5 bullets, 250-300 chars.
+2. **Add one more project** from `project_info.md` (next-ranked, not already in resume). Same format, 3 bullets, 180-240 chars.
 3. **Re-compile and re-audit.** Target: bottom margin reached, ≤1 line trailing whitespace, no gaps >2 empty lines, exactly 1 page. If overflow → trim or swap weaker project.
 4. **Verify fullness on final PDF.** Last text line within bottom ~10% of page. If not, iterate 0-3.
 
@@ -99,7 +101,7 @@ After initial compilation, resume MUST be full: content reaches bottom margin, �
 ## 3. Visual Layout Audit & Stop-Slop Checks
 
 - Apply **Stop-Slop** per SKILL.md §"Stop-Slop".
-- **Tools-Line Deduplication:** No bullet that just names a header tool. Reinforcement allowed only with added action/outcome. Keep tools lines to 5-7 JD-aligned entries.
+- **Tools-Line Deduplication:** No bullet that just names a header tool. Reinforcement allowed only with added action/outcome. Keep tools lines to 3-5 JD-aligned entries.
 - **Orphan Punctuation:** Verify no orphan periods, double periods, spaces before punctuation. Run `--check-tex` and scan PDF.
 - **Page Fill Density (MANDATORY):** (a) exactly 1 page, (b) last line within bottom ~10%, (c) no internal gap >2 empty lines. Report as `page_fill_density` in `Layout_Audit_Report.yaml`.
 - **Self-Correction:** If violations, immediately adjust text parameters. v2 only if >3 bullets changed or entire section restructured.
@@ -113,7 +115,7 @@ Renderer produces `name --- [GitHub] --- summary` directly from YAML bullets. Op
 2. No separate "Tools:" line — weave tools into description prose.
 3. Keep `name --- [GitHub] --- summary` structure. Name/separators/link excluded from char count.
 4. Quantification: every project needs ≥1 metric from catalog `key_metrics` (verbatim or reframed). If none exists, omit rather than fabricate.
-5. Length: ≤300 chars (≤280 German), ≤3 lines.
+5. Length: 180-240 chars (160-220 German), exactly 3 lines. No exceptions.
 6. Keyword preservation: all tools/technologies from YAML bullets must appear in prose.
 7. Active voice. No adverbs ending in `-ly`. No em-dashes except `---` separators.
 
@@ -161,7 +163,7 @@ If any name doesn't match catalog exactly → replace with real catalog project.
 ## Optional: Add One More Project
 
 1. Read `project_info.md` — pick next-ranked project not already in resume. If user names a specific project, use it (must exist in catalog).
-2. Write single-paragraph: `name --- [GitHub] --- summary` (≤300 chars / ≤280 German, ≥1 metric).
+2. Write single-paragraph: `name --- [GitHub] --- summary` (180-240 chars / 160-220 German, ≥1 metric, 3 lines max).
 3. Insert: US style → `projects` list. German style → `project_bullets` under Independent Data Engineering entry.
 4. Recompile + re-run parseability audit. Must stay on one page.
 
@@ -208,8 +210,8 @@ technical_skills:
 projects:
   - name: "[Project Name]"
     repo_url: "[from project_info.md]"
-    tools: ["[Tool]"]  # 5-7 JD-aligned, used for parseability audit
-    bullets: ["[Outcome bullet]"]  # 3-5, joined into prose (<=300 chars EN / <=280 DE)
+    tools: ["[Tool]"]  # 3-5 most JD-relevant, used for parseability audit
+    bullets: ["[Outcome bullet]"]  # exactly 3, joined into prose (180-240 chars EN / 160-220 DE)
 professional_experience:
   - company: "[Company]"
     location: "[City]"

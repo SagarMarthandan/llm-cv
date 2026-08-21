@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.4.0 — 2026-08-21
+
+### Changed
+
+- **Project summaries tightened to 3 lines:** Resume project entries now use exactly 3 bullets (was 3-5) targeting 180-240 chars English / 160-220 chars German (was 250-300 / 230-280). Hard 3-line render limit enforced. Each bullet carries one outcome + its key metric. Eliminates verbose multi-paragraph project descriptions that read as prose padding.
+- **Anti-stuffing tech skills principle:** New "Technical skills selection (ANTI-STUFFING)" directive in Step 2 §1. Skills block now includes only JD-relevant skills the candidate genuinely knows, prioritized as: (1) JD-required skills, (2) core tools from selected projects, (3) adjacent strengths. Irrelevant technologies omitted even if known. Prevents the exhaustive inventory pattern that signals ATS keyword stuffing.
+- **Project tools field reduced:** Per-project `tools` list in `Resume.yaml` reduced from 5-7 to 3-5 most JD-relevant tools. Tools-Line Deduplication audit (§3) updated to match. Irrelevant tools from catalog entries no longer dilute the signal.
+- **Space-fill directive updated:** Character budgets in §2.5 now reference the tighter 180-240/160-220 ranges. Add-one-more-project and LaTeX polish sections updated to match.
+
+### Files Modified
+
+- `02_resume_and_visual_audit.md` — §1 (anti-stuffing + project tools), §2 (layout table, project instructions), §2.5 (space-fill budgets), §3 (tools-line count), §4 (LaTeX polish length), Optional (add project), §B (YAML schema comments)
+- `llm-cv-token-optimization-plan.md` — planning doc table updated for consistency
+
+
 ## v1.3.0 — 2026-08-19
 
 ### Added

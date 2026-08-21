@@ -198,7 +198,7 @@ This is the biggest file. Key cuts:
   | Element | English | German |
   |---------|---------|--------|
   | Summary | 2 lines, ≤200 chars | 2 lines, ≤170 chars |
-  | Project summary | ≤300 chars, ≤3 lines | ≤280 chars, ≤3 lines |
+  | Project summary | 180-240 chars, 3 lines | 160-220 chars, 3 lines |
   | Experience bullets | ≤105 chars, 1 line each | same |
   | IBM bullets | exactly 4 | exactly 4 |
   | Staff 4 bullets | exactly 2 | exactly 2 |

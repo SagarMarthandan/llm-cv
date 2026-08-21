@@ -55,7 +55,7 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 |:---|:---|:---|
 | **0** (optional) | Scrape JD from URL. Jina Reader for JS-SPA sites, webfetch for static, manual paste fallback. | Clean JD text |
 | **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (16 → top 6), JD archival, location tailoring. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
-| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
+| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning, 3-line project summaries, JD-relevant skills only), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 | **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
 
@@ -102,7 +102,7 @@ Resumes compiled in LaTeX mode automatically get the candidate's headshot (`okf/
 | `technologies` | Comma-separated tech stack |
 | `archetypes` | Role archetypes this project fits |
 | `repo_url` | GitHub URL (empty string if none) |
-| `bullets` | 8-10 detailed bullets with quantified metrics |
+| `bullets` | 8-10 detailed bullets with quantified metrics (catalog source; resume uses 3) |
 | `keywords` | Search/matching keywords |
 
 ## File Structure
