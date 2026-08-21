@@ -85,6 +85,7 @@ Resume MUST fill exactly ONE full A4 page — no empty space at bottom, no spill
 - **Summary:** No tool-listing (tools go in Technical Skills). Positioning statement: who you are + what you do + outcome. Must NOT lead with standalone year-count tied to IBM. IBM (08/2014–12/2018) = only professional production experience, stated as background credential. Independent period (01/2023–04/2025) = self-directed learning, never "production experience."
 - **Projects:** Select best 3-4 from 6 in `project_info.md`. Format: `name --- [GitHub] --- summary` (single paragraph, renderer joins bullets into prose). Name/em-dashes/link excluded from char count. Write exactly 3 bullets per project targeting 180-240 chars (160-220 German). Hard limit: 3 rendered lines, no more. Each bullet: one outcome + its key metric. No padding, no tech-listing (tools go in the `tools` field and Technical Skills section).
 - **Render mode:** `latex` (default) or `reportfallback`. ReportFallback skips §4 and Steps B/C — single compile produces final PDF.
+- **Section Rule Separation (HARD):** Never reduce `\titlespacing` after-sep below 4pt (`\titlespacing{\section}{0pt}{6pt}{4pt}` is the renderer default). A smaller gap makes the `\titlerule` visually merge with the first content line under every section header. If the page overflows, trim content or enlarge `\vspace` budgets between jobs, never the after-sep.
 
 ## 2.5 Space-Fill Directive (MANDATORY — One Full Page)
 
