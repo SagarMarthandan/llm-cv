@@ -203,6 +203,30 @@ Follow `02_resume_and_visual_audit.md` §"Optional: Add One More Project". Pick 
 
 Read `99_completion_checklist.md` — run it only after all 3 steps complete. Do not read it during pipeline execution (it wastes context tokens).
 
+## Pipeline Summary Output (MANDATORY — print at end of every run or change)
+
+After every pipeline run, individual step completion, or ad-hoc resume change, print this summary block as the FINAL output. No exceptions. Read values from disk files (ATS_Report.yaml, Resume.yaml, Layout_Audit_Report.yaml, Parseability_Report.yaml) — do not guess.
+
+```
+╔══════════════════════════════════════════════════╗
+║           PIPELINE FINISHED !!!                  ║
+╠══════════════════════════════════════════════════╣
+║  Company Name    - [from ATS_Report.yaml]        ║
+║  Folder Location - /home/sagar/Applications/...  ║
+║  Delta           - [pre vs post ATS score delta] ║
+║  Resume          - [OK or BAD: parseability +    ║
+║                    layout audit verdict]          ║
+║  Status          - [what was done this session]  ║
+╚══════════════════════════════════════════════════╝
+```
+
+**Field rules:**
+- **Company Name:** `company` key from `ATS_Report.yaml`.
+- **Folder Location:** Absolute path to the application folder.
+- **Delta:** `score_delta` from `post_rewrite_ats_score` in `ATS_Report.yaml`. If Step 2 not run, omit or write "N/A".
+- **Resume:** "OK" if parseability audit passed AND layout audit `page_fill_density` = Pass. "BAD" if either failed. Include one-line reason if BAD.
+- **Status:** One sentence describing what was done. Examples: "Pipeline finished — all 3 steps completed." / "Step 2 completed — resume rewritten and compiled." / "Applied user changes — shortened project summaries, recompiled resume." / "Added one more project, recompiled, audit passed."
+
 ## Self-Refresh
 
 When the user says "llm-cv refresh": locate ground truth `SKILL.md` (local `skills/llm-cv/SKILL.md` or GitHub `https://github.com/SagarMarthandan/llm-cv`), copy to active skill store, confirm load, then ingest all supporting `.md` docs (00-03, 99). Do not perform any other actions.
