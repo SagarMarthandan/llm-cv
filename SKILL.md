@@ -169,7 +169,13 @@ Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories ×
 
 ### STEP 2: Resume Rewrite & Visual Layout Audit
 
-Read `02_resume_and_visual_audit.md`. Rewrites resume from ATS blueprint + project list. Compiles via LaTeX, layout audit, Stop-Slop check, post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
+Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from ATS blueprint + project list. Compiles via LaTeX, layout audit, Stop-Slop check, post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
+
+**Step 2 Hard Constraints (NON-NEGOTIABLE — enforce even if step doc not fully read):**
+- **Project summaries:** Exactly 3 bullets per project, 180-240 chars EN / 160-220 DE, hard 3-line render limit. One outcome + metric per bullet. No padding, no tech-listing.
+- **Technical skills:** JD-relevant only. Do NOT list every technology from every project. Prioritize JD-required skills → core project tools → adjacent strengths. Omit irrelevant technologies even if known.
+- **Project tools field:** 3-5 most JD-relevant tools per project, not every technology from the catalog entry.
+- **Section rule separation:** Never reduce `\titlespacing` after-sep below 4pt (renderer default `\titlespacing{\section}{0pt}{6pt}{4pt}`). Smaller gaps make the `\titlerule` merge with the first content line. Overflow → trim content or enlarge `\vspace`, never reduce after-sep.
 
 **Output:** `Resume.yaml`, `Layout_Audit_Report.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`/`Lebenslauf.pdf`, `Parseability_Report.yaml`, `Parseability_Report.pdf`.
 

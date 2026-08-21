@@ -9,9 +9,11 @@
 - **Project tools field reduced:** Per-project `tools` list in `Resume.yaml` reduced from 5-7 to 3-5 most JD-relevant tools. Tools-Line Deduplication audit (§3) updated to match. Irrelevant tools from catalog entries no longer dilute the signal.
 - **Section Rule Separation (HARD):** New hard layout constraint in Step 2 §2. `\titlespacing` after-sep must never go below 4pt (renderer default). Smaller gaps make the `\titlerule` visually merge with the first content line under every section header. Overflow fixes must trim content or enlarge `\vspace` budgets, never reduce after-sep.
 - **Space-fill directive updated:** Character budgets in §2.5 now reference the tighter 180-240/160-220 ranges. Add-one-more-project and LaTeX polish sections updated to match.
+- **SKILL.md Step 2 hard constraints (bugfix):** Step 2 constraints (3 bullets, 180-240 chars, anti-stuffing, section rule separation) were only in `02_resume_and_visual_audit.md`, which session-split agents routinely skip reading when the `run_pipeline.sh` prompt provides inline execution steps. Added a "Step 2 Hard Constraints" block directly to SKILL.md's Step 2 section so the rules are always in context via `--skills llm-cv` auto-injection. Root cause of 6 pipeline runs ignoring the v1.4.0 changes.
 
 ### Files Modified
 
+- `SKILL.md` — Step 2 section: added hard constraints block (project summaries, tech skills, project tools, section rule separation)
 - `02_resume_and_visual_audit.md` — §1 (anti-stuffing + project tools), §2 (layout table, project instructions, section rule separation), §2.5 (space-fill budgets), §3 (tools-line count), §4 (LaTeX polish length), Optional (add project), §B (YAML schema comments)
 - `llm-cv-token-optimization-plan.md` — planning doc table updated for consistency
 
