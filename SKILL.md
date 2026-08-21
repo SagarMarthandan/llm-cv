@@ -212,6 +212,7 @@ After every pipeline run, individual step completion, or ad-hoc resume change, p
 ║           PIPELINE FINISHED !!!                  ║
 ╠══════════════════════════════════════════════════╣
 ║  Company Name    - [from ATS_Report.yaml]        ║
+║  Position        - [from ATS_Report.yaml]        ║
 ║  Folder Location - /home/sagar/Applications/...  ║
 ║  Delta           - [pre vs post ATS score delta] ║
 ║  Resume          - [OK or BAD: parseability +    ║
@@ -222,6 +223,7 @@ After every pipeline run, individual step completion, or ad-hoc resume change, p
 
 **Field rules:**
 - **Company Name:** `company` key from `ATS_Report.yaml`.
+- **Position:** `position` key from `ATS_Report.yaml`.
 - **Folder Location:** Absolute path to the application folder.
 - **Delta:** `score_delta` from `post_rewrite_ats_score` in `ATS_Report.yaml`. If Step 2 not run, omit or write "N/A".
 - **Resume:** "OK" if parseability audit passed AND layout audit `page_fill_density` = Pass. "BAD" if either failed. Include one-line reason if BAD.
