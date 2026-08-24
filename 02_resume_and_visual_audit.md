@@ -27,6 +27,7 @@ user_directed_skills: []  # populated only if Selective
 ```
 
 ## 1. Document Rewrite & Project Selection
+> **Score-Boost Gate:** Read `ats_score_matrix.total_score` from `ATS_Report.yaml`. If < 85 AND `score_boost_mode: true` (user opted in via wrapper script), apply the Score-Boost measures from `prompts/score_boost.md` during this rewrite. Measures 1-3 (student framing, JD phrase weaving, adjacent skills) apply here in §1. Measure 4 (itemized scoring rubric) applies in §5. If score ≥ 85 or `score_boost_mode: false`, skip all Score-Boost measures.
 
 - **Archetype alignment:** Bias project order/phrasing toward archetype from Step 1.
 - **Skill gap closure:** Apply per `keyword_stuffing` decision:
@@ -67,6 +68,16 @@ Projects are NOT a separate section. They're `project_bullets` under a special e
 - Title: concrete role (Data Engineer, Analytics Engineer, etc.). Never Architect/Lead/Manager/Remote.
 - First 3 `project_bullets` = JD-aligned projects from `project_info.md`. Each must include quantified metrics.
 - `bullets` list = single "other tools" bullet after project bullets.
+
+### Score-Boost Measures (apply only if Score-Boost Gate is active)
+
+See `prompts/score_boost.md` for full detail. Summary:
+
+- **Student Framing (Measure 1):** If the JD is an intern/Werkstudent/student role AND the candidate is currently enrolled (education entry with date "present"), lead the summary with "M.Sc. student in [field] and [archetype], ..." instead of a bare title. Still exactly 2 lines, ≤200 chars EN / ≤170 DE, no tool names.
+- **Exact JD Phrase Weaving (Measure 2):** Scan `Job_Description.yaml` for distinctive verb phrases (e.g. "data transformation workflows", "Python-based bots and utilities", "SQL queries and stored procedures"). Weave at least 1 exact phrase into truthful bullet prose. Phrase must be genuinely matched by candidate's work (no capability fabrication); longest phrase goes in the German-style Independent entry's single "other tools" bullet (≤105 chars, 1 line); project bullets stay 180-240 chars total / exactly 3 lines.
+- **Real Adjacent Skills (Measure 3):** If the JD demands bots/automation/API work and the base resume contains a streaming/API category (Apache Kafka, Redis, REST APIs, JSON/HTML/PDF parsing, AWS SQS), re-add it as its own Technical Skills row even if the current JD-anchored block dropped it. Replace weak-signal filler instead of growing the block (e.g. generic plotting libs): 1-page fill must hold.
+
+> **Anti-Hallucination:** Measures 1-3 enhance framing and surface real adjacent skills. No fabricating capabilities, metrics, or experience. Exact JD phrase weaving requires the phrase to be genuinely matched by candidate work.
 
 ## 2. Structural & Layout Constraints
 
@@ -126,6 +137,7 @@ Renderer produces `name --- [GitHub] --- summary` directly from YAML bullets. Op
 - Re-issue `formatting_quality` verdict. Calculate `score_delta`.
 - Update `post_rewrite_ats_score` block in existing `ATS_Report.yaml` (do NOT overwrite pre-rewrite section).
 - Surface score delta to user. ATS_Report.pdf recompile happens in Step C.
+- **Score-Boost Measure 4 (Itemized Scoring Rubric — mandatory when Score-Boost is active):** Score each of the 4 categories against an explicit enumerated list of JD term groups, not impressions. Write the matched/unmatched item lists inside `evaluation_criteria`. Unmatched terms carry a parenthetical reason: "(excluded by user)" if the user excluded them, "(not in candidate's evidence)" otherwise; mirror that phrasing in `remaining_gaps`. Every score point must trace to a string present in `Resume.yaml` or a documented fact. Do not inflate: the category ceiling is real JD-stack coverage. Target ≥88 only if the itemized rubric genuinely supports it. See `prompts/score_boost.md` for full detail.
 
 ## 6. Resume Parseability Audit (Mandatory Post-Compilation)
 

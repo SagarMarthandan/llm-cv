@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.5.0 — 2026-08-24
+
+### Added
+
+- **Score-Boost Mode (conditional, user-opt-in):** When the initial ATS score from Step 1 (`ats_score_matrix.total_score` in `ATS_Report.yaml`) is below 85, `run_pipeline.sh` displays the score, lists the 4 score-boosting measures and what each changes, and asks the user whether to apply them. If the user opts in, `score_boost_mode: true` and `initial_ats_score` are injected into the Step 2 prompt. If score ≥ 85, the prompt is skipped entirely. Proven on Harman Intern Digital Corporate Data & Analytics run: initial 69 → post-rewrite 88 (+19 delta).
+- **`prompts/score_boost.md`:** New reference file inside the skill directory containing the 4 score-boost measures (student framing, exact JD phrase weaving, real adjacent skills, itemized scoring rubric). Replaces the external `promt improvements.txt` so session-split agents can reference it reliably.
+
+### Changed
+
+- **Step 2 §1 (Document Rewrite):** Score-Boost Gate check added at top of section. Measures 1-3 (student framing, JD phrase weaving, adjacent skills) integrated as conditional sub-sections at end of §1, active only when Score-Boost Gate is active.
+- **Step 2 §5 (Post-Rewrite ATS Rescoring):** Measure 4 (itemized scoring rubric) integrated as conditional rule, mandatory when Score-Boost is active. Scores each category against explicit enumerated JD term lists with matched/unmatched items and parenthetical reasons.
+- **SKILL.md Step 2 Hard Constraints:** Added compact Score-Boost Mode block noting user-opt-in activation, measure locations (§1 and §5), and anti-hallucination compliance.
+- **`run_pipeline.sh`:** Reads `ats_score_matrix.total_score` after Step 1; if < 85, presents interactive `select` prompt with score + measure descriptions + y/n choice. Injects `score_boost_mode` and `initial_ats_score` into Step 2 prompt.
+- **`prompts/step2.md`:** Reference template updated with `score_boost_mode` and `initial_ats_score` fields and Score-Boost application directive.
+
+### Files Modified
+
+- `prompts/score_boost.md` — new file (4 measures, anti-hallucination note)
+- `02_resume_and_visual_audit.md` — §1 (Score-Boost Gate + Measures 1-3 sub-section), §5 (Measure 4)
+- `SKILL.md` — Step 2 Hard Constraints (Score-Boost Mode block)
+- `run_pipeline.sh` — Score-Boost ask section + Step 2 prompt injection
+- `prompts/step2.md` — score_boost_mode/initial_ats_score fields + application directive
+- `README.md` — Score-Boost Mode section + file structure update
+
+
 ## v1.4.0 — 2026-08-21
 
 ### Changed

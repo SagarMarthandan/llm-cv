@@ -24,8 +24,12 @@ First Action answers (already collected — do NOT use the ask tool):
 Keyword stuffing decision (already collected — do NOT use the ask tool):
 - keyword_stuffing: {true|false}
 - user_directed_skills: "{comma-separated skills — only if Selective}"
+- score_boost_mode: {true|false}          # true if user opted in when initial ATS score < 85
+- initial_ats_score: {integer}             # from Step 1 ats_score_matrix.total_score
 
 Execute Step 2 completely:
+If score_boost_mode is true, apply Score-Boost measures from prompts/score_boost.md during the rewrite: Measures 1-3 (student framing, JD phrase weaving, adjacent skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric) in §5 Post-Rewrite ATS Rescoring.
+
 1. Write Resume.yaml with all projects, skills, experience
 2. Compile the resume (LaTeX: tex-only → pdflatex × 2 → stamp photo; ReportFallback: single compile)
 3. Run layout audit → Layout_Audit_Report.yaml

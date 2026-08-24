@@ -261,6 +261,53 @@ case "$stuffing_choice" in
 esac
 
 echo ""
+###############################################################################
+# Read initial ATS score and ask about Score-Boost Mode
+###############################################################################
+INITIAL_ATS_SCORE=$("$VENV_PYTHON" -c "
+import yaml
+with open('$APP_DIR/ATS_Report.yaml') as f:
+    data = yaml.safe_load(f)
+score = data.get('ats_score_matrix', {}).get('total_score', 0)
+print(score)
+" 2>/dev/null || echo "0")
+
+score_boost_mode="false"
+
+if [[ "$INITIAL_ATS_SCORE" -lt 85 ]]; then
+    echo ""
+    warn "Initial ATS score: $INITIAL_ATS_SCORE (< 85)"
+    echo ""
+    echo "Score-Boost Mode can improve the resume by applying these measures:"
+    echo "  1. Student Framing — lead summary with 'M.Sc. student in [field] and [archetype]'"
+    echo "     for intern/student roles (if applicable)"
+    echo "  2. Exact JD Phrase Weaving — weave distinctive JD verb phrases into truthful"
+    echo "     bullet prose (e.g. 'data transformation workflows', 'SQL stored procedures')"
+    echo "  3. Real Adjacent Skills — re-add streaming/API skills (Kafka, Redis, REST APIs)"
+    echo "     if JD demands bots/automation and base resume has them"
+    echo "  4. Itemized Scoring Rubric — post-rewrite rescoring against explicit JD term"
+    echo "     lists with matched/unmatched items (more rigorous score justification)"
+    echo ""
+    echo "All measures respect anti-hallucination rules — no fabricating capabilities or metrics."
+    echo ""
+    PS3="Apply Score-Boost Mode? (1-2): "
+    select boost_choice in "Yes — apply score-boosting measures" "No — proceed with standard rewrite"; do break; done
+
+    case "$boost_choice" in
+        "Yes — apply score-boosting measures")
+            score_boost_mode="true"
+            ok "Score-Boost Mode ACTIVATED"
+            ;;
+        *)
+            score_boost_mode="false"
+            ok "Score-Boost Mode skipped — proceeding with standard rewrite"
+            ;;
+    esac
+else
+    ok "Initial ATS score: $INITIAL_ATS_SCORE (≥ 85) — Score-Boost Mode not needed"
+fi
+
+echo ""
 
 ###############################################################################
 # Step 2: Resume Rewrite & Visual Layout Audit
@@ -282,8 +329,11 @@ Read these files from the application folder (do NOT re-paste):
 Keyword stuffing decision (already collected — do NOT use the ask tool):
 - keyword_stuffing: $keyword_stuffing
 - user_directed_skills: "$user_directed_skills"
+- score_boost_mode: $score_boost_mode
+- initial_ats_score: $INITIAL_ATS_SCORE
 
 Execute Step 2 completely:
+If score_boost_mode is true, apply Score-Boost measures from prompts/score_boost.md during the rewrite: Measures 1-3 (student framing, JD phrase weaving, adjacent skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric) in §5 Post-Rewrite ATS Rescoring.
 1. Write Resume.yaml with all projects, skills, experience
 2. Compile the resume (LaTeX: tex-only → pdflatex × 2 → stamp photo; ReportFallback: single compile)
 3. Run layout audit → Layout_Audit_Report.yaml

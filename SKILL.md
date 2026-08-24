@@ -176,6 +176,7 @@ Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from
 - **Technical skills:** JD-relevant only. Do NOT list every technology from every project. Prioritize JD-required skills → core project tools → adjacent strengths. Omit irrelevant technologies even if known.
 - **Project tools field:** 3-5 most JD-relevant tools per project, not every technology from the catalog entry.
 - **Section rule separation:** Never reduce `\titlespacing` after-sep below 4pt (renderer default `\titlespacing{\section}{0pt}{6pt}{4pt}`). Smaller gaps make the `\titlerule` merge with the first content line. Overflow → trim content or enlarge `\vspace`, never reduce after-sep.
+- **Score-Boost Mode (conditional, user-opt-in):** If `ats_score_matrix.total_score` in `ATS_Report.yaml` < 85, the wrapper script asks the user whether to apply score-boosting and injects `score_boost_mode: true` if they opt in. When active, apply measures from `prompts/score_boost.md`: Measures 1-3 (student framing, exact JD phrase weaving, real adjacent streaming/API skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric with matched/unmatched JD term lists) in §5 Post-Rewrite ATS Rescoring. Compilation/verification already covered by existing steps. Anti-hallucination still applies — no fabricating capabilities or metrics. If score ≥ 85 or user declines, skip entirely.
 
 **Output:** `Resume.yaml`, `Layout_Audit_Report.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`/`Lebenslauf.pdf`, `Parseability_Report.yaml`, `Parseability_Report.pdf`.
 

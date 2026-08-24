@@ -91,6 +91,17 @@ Resumes compiled in LaTeX mode automatically get the candidate's headshot (`okf/
 - **Custom photo:** Set `contact_info.photo: /path/to/photo.jpg` in `Resume.yaml`
 - **Override default:** Set `LLM_CV_CANDIDATE_PHOTO` env var
 
+## Score-Boost Mode
+
+When the initial ATS score from Step 1 is below 85, the wrapper script asks the user whether to apply score-boosting measures before launching Step 2. The prompt shows the score and lists what each measure would change:
+
+1. **Student Framing** — leads the summary with "M.Sc. student in [field] and [archetype]" for intern/student roles
+2. **Exact JD Phrase Weaving** — weaves distinctive JD verb phrases into truthful bullet prose (e.g. "data transformation workflows", "SQL stored procedures")
+3. **Real Adjacent Skills** — re-adds streaming/API skills (Kafka, Redis, REST APIs) if the JD demands bots/automation and the base resume has them
+4. **Itemized Scoring Rubric** — post-rewrite rescoring against explicit JD term lists with matched/unmatched items for rigorous score justification
+
+Measures 1-3 apply during the resume rewrite (Step 2 §1). Measure 4 applies during post-rewrite ATS rescoring (Step 2 §5). All measures respect anti-hallucination rules — no fabricating capabilities or metrics. Full detail in `prompts/score_boost.md`. If the score is ≥ 85, the prompt is skipped entirely.
+
 ## Project Catalog
 
 `okf/project_catalog.yaml` — single source of truth for all project data. 16 projects, each with:
@@ -119,7 +130,8 @@ llm-cv/
 ├── prompts/                          # Session prompt templates (reference docs)
 │   ├── step1.md
 │   ├── step2.md
-│   └── step3.md
+│   ├── step3.md
+│   └── score_boost.md                 # Score-Boost measures reference (conditional, user-opt-in)
 ├── config.py                         # Location lookup, candidate info
 ├── yaml_to_pdf.py                    # PDF compilation entry point
 ├── resume_parseability.py            # ATS parse-integrity audit
