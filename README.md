@@ -55,7 +55,7 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 |:---|:---|:---|
 | **0** (optional) | Scrape JD from URL. Jina Reader for JS-SPA sites, webfetch for static, manual paste fallback. | Clean JD text |
 | **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (16 → top 6), JD archival, location tailoring. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
-| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning, 3-line project summaries, JD-relevant skills only), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
+| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning, 3-line project summaries, JD-relevant skills only, optional Score-Boost Mode when initial ATS score < 85), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 | **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
 
@@ -176,12 +176,20 @@ Session 2 (Step 2): ~12 calls, ~11K base context
     ↓ writes Resume.yaml, compiles resume, runs audits
     ↓ session ends — clean context
 
+    ↓ wrapper reads ATS score; if < 85, asks user about Score-Boost Mode
+    ↓ passes score_boost_mode + keyword stuffing decision inline to Step 2
+
+Session 2 (Step 2): ~12 calls, ~11K base context
+    ↓ reads Step 1 outputs from disk
+    ↓ writes Resume.yaml, compiles resume, runs audits
+    ↓ session ends — clean context
+
 Session 3 (Step 3): ~8 calls, ~8K base context
     ↓ reads Step 1+2 outputs from disk
     ↓ writes Cover_Letter.yaml, compiles, runs Obsidian sync
 ```
 
-**How steps chain:** The YAML schemas are the contract between steps. `ATS_Report.yaml` carries `render_mode`, `resume_style`, `language`, `application_source`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, and `closest_candidate_location` — all read by Step 2 and Step 3 from disk. The wrapper script collects the keyword stuffing decision (not persisted to disk) between Step 1 and Step 2 and passes it inline.
+**How steps chain:** The YAML schemas are the contract between steps. `ATS_Report.yaml` carries `render_mode`, `resume_style`, `language`, `application_source`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, and `closest_candidate_location` — all read by Step 2 and Step 3 from disk. The wrapper script collects the keyword stuffing decision and Score-Boost Mode decision (not persisted to disk) between Step 1 and Step 2 and passes them inline. If the initial ATS score is < 85, the user is prompted to opt in to Score-Boost Mode before Step 2 launches.
 
 **Manual re-runs:** Each step can be re-run independently by launching an OMP session with the appropriate prompt template (see `prompts/step1.md`, `prompts/step2.md`, `prompts/step3.md`). The agent reads previous step outputs from disk.
 
