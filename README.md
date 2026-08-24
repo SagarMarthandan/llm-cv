@@ -171,11 +171,6 @@ Session 1 (Step 1): ~10 calls, ~20K base context
     ↓ writes ATS_Report.yaml, Job_Description.yaml, project_info.md to disk
     ↓ session ends — clean context
 
-Session 2 (Step 2): ~12 calls, ~11K base context
-    ↓ reads Step 1 outputs from disk
-    ↓ writes Resume.yaml, compiles resume, runs audits
-    ↓ session ends — clean context
-
     ↓ wrapper reads ATS score; if < 85, asks user about Score-Boost Mode
     ↓ passes score_boost_mode + keyword stuffing decision inline to Step 2
 
