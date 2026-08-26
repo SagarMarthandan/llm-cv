@@ -9,8 +9,8 @@ The agent reads a 16-project catalog (`okf/project_catalog.yaml`), ranks the top
 No vector databases. No embedding models. No keyword matching algorithms. The LLM is the ranker.
 
 ```
-URL (optional) ──► Step 0: JD Fetch ──► Step 1: ATS + Project Ranking ──► Step 2: Resume ──► Step 3: Cover Letter ──► Obsidian Sync
-                                         (catalog → top 6)                  (rewrite + audit)    (DIN 5008)
+URL (optional) ──► Step 0: JD Fetch ──► Step 1: ATS + Project Ranking ──► Dup Check ──► Step 2: Resume ──► Step 3: Cover Letter ──► Obsidian Sync
+                                         (catalog → top 6)                  (vault scan)         (rewrite + audit)    (DIN 5008)
 ```
 
 ## Quick Start
@@ -56,6 +56,7 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 | **0** (optional) | Scrape JD from URL. Jina Reader for JS-SPA sites, webfetch for static, manual paste fallback. | Clean JD text |
 | **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (16 → top 6), JD archival, location tailoring. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
 | **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning, 3-line project summaries, JD-relevant skills only, optional Score-Boost Mode when initial ATS score < 85), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
+| **Dup** | Duplicate application check. Searches Obsidian vault + Applications filesystem tree for prior applications to the same company + role. Fuzzy-matches company (strips legal suffixes) and role (strips gender markers). User chooses: proceed, abort, or reuse prior resume as starting point. | `check_duplicate_application.py` output (stdout) |
 | **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
 
@@ -102,6 +103,29 @@ When the initial ATS score from Step 1 is below 85, the wrapper script asks the 
 
 Measures 1-3 apply during the resume rewrite (Step 2 §1). Measure 4 applies during post-rewrite ATS rescoring (Step 2 §5). All measures respect anti-hallucination rules — no fabricating capabilities or metrics. Full detail in `prompts/score_boost.md`. If the score is ≥ 85, the prompt is skipped entirely.
 
+## Duplicate Application Check
+
+Before the resume rewrite begins, `run_pipeline.sh` runs `check_duplicate_application.py` to search the Obsidian vault (`~/Documents/Obsidian Vault/Job Search/Applications/`) and the Applications filesystem tree (`~/Applications/YYYY/MM/DD/`) for prior applications to the same company + role. The script:
+
+- **Normalizes** company names (strips legal suffixes like GmbH, AG, SE & Co. KG) and role titles (strips gender markers like `(m/w/d)`, `(all genders)`) before fuzzy-matching with `SequenceMatcher`
+- **Thresholds:** company similarity ≥ 0.88, role similarity ≥ 0.82 (lowered to 0.77 when company is near-exact match)
+- **Deduplicates** Obsidian + filesystem hits by normalized (company, role, date), preferring Obsidian source for richer ATS score data
+- **Self-excludes** the current application folder when run in `--app_dir` mode
+
+If duplicates are found, the user is prompted with three options:
+
+1. **Proceed** — rewrite the resume from scratch anyway
+2. **Abort** — stop the pipeline
+3. **Reuse prior resume** — copies the most recent prior `Resume.yaml` as the starting point for Step 2
+
+Can also be run standalone:
+
+```bash
+.venv/bin/python check_duplicate_application.py <app_dir>           # read company/role from ATS_Report.yaml
+.venv/bin/python check_duplicate_application.py --company "X" --position "Y"  # direct lookup
+.venv/bin/python check_duplicate_application.py <app_dir> --json    # JSON output for programmatic use
+```
+
 ## Project Catalog
 
 `okf/project_catalog.yaml` — single source of truth for all project data. 16 projects, each with:
@@ -137,7 +161,7 @@ llm-cv/
 ├── resume_parseability.py            # ATS parse-integrity audit
 ├── stamp_photo.py                    # Candidate photo stamping (LaTeX post-process)
 ├── sync_to_obsidian.py               # Obsidian sync entry point
-├── obsidian_sync_core.py             # Obsidian sync core logic
+├── check_duplicate_application.py      # Duplicate application detection (Obsidian vault + filesystem)
 ├── obsidian_folder_sort.py           # Folder sorting logic
 ├── organize_applications.py          # Application folder organization
 ├── track_outcomes.py                 # Outcome tracking
@@ -170,7 +194,8 @@ llm-cv/
 Session 1 (Step 1): ~10 calls, ~20K base context
     ↓ writes ATS_Report.yaml, Job_Description.yaml, project_info.md to disk
     ↓ session ends — clean context
-
+    ↓ wrapper runs duplicate application check against Obsidian vault + Applications tree
+    ↓ if duplicate found: user chooses proceed / abort / reuse prior resume
     ↓ wrapper reads ATS score; if < 85, asks user about Score-Boost Mode
     ↓ passes score_boost_mode + keyword stuffing decision inline to Step 2
 

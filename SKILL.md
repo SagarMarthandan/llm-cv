@@ -26,6 +26,7 @@ dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 
 Step 1: ATS analysis + JD archival + LLM project ranking → `ATS_Report.yaml`, `Job_Description.pdf`, `project_info.md`
 Step 2: Resume rewrite + layout audit + parseability audit → `Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.pdf`
+Post-Step-1: Duplicate Application Check (wrapper mode) → searches Obsidian vault + Applications tree for prior applications to same company + role; prompts user to proceed, abort, or reuse prior resume
 Step 3: Cover letter → `Cover_Letter.pdf`
 Post: Obsidian sync + sort → moves folder to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
 
@@ -33,7 +34,7 @@ Post: Obsidian sync + sort → moves folder to `/home/sagar/Applications/YYYY/MM
 - **Project Catalog:** `okf/project_catalog.yaml` — 15 projects with title, description, business_problem, key_metrics, transferable_skills, technologies, archetypes, repo_url, bullets, keywords. Single source of truth. `key_metrics` is authoritative — cite verbatim, never invent.
 - **Python:** `/home/sagar/Skills/llm-cv/.venv/bin/python` — use this exact path verbatim. Dependencies: `pyyaml`, `reportlab`, `pypdf`. Do NOT run `pip install`.
 - **Working Directory:** `/home/sagar/Applications/` (absolute path — never relative to agent CWD).
-- **Key Scripts:** `yaml_to_pdf.py` (entry point), `resume_parseability.py` (ATS parse audit, auto-recovers via ReportFallback), `sync_to_obsidian.py` (Obsidian sync), `organize_applications.py` (date tree sort). Renderers in `renderers/` dispatch by `render_mode` + `resume_style`.
+- **Key Scripts:** `yaml_to_pdf.py` (entry point), `resume_parseability.py` (ATS parse audit, auto-recovers via ReportFallback), `sync_to_obsidian.py` (Obsidian sync), `organize_applications.py` (date tree sort), `check_duplicate_application.py` (duplicate application detection against Obsidian vault + Applications tree). Renderers in `renderers/` dispatch by `render_mode` + `resume_style`.
 
 ## General Writing & Style Rules (Stop-Slop)
 
@@ -136,9 +137,11 @@ cd /home/sagar/Skills/llm-cv
 The script:
 1. Collects First Action answers (render mode, style, source, language)
 2. Launches Step 1 session (`omp -p --auto-approve`) → writes ATS_Report.yaml, Job_Description.yaml, project_info.md
-3. Reads `skill_gaps` from ATS_Report.yaml, collects keyword stuffing decision
-4. Launches Step 2 session → writes Resume.yaml, compiles resume, runs audits
-5. Launches Step 3 session → writes Cover_Letter.yaml, compiles, runs Obsidian sync
+3. **Duplicate Application Check** — runs `check_duplicate_application.py` against the Obsidian vault and Applications tree; if a prior application to the same company + role is found, prompts the user to proceed, abort, or reuse the prior resume as a starting point
+4. Reads `skill_gaps` from ATS_Report.yaml, collects keyword stuffing decision
+5. Reads initial ATS score, asks about Score-Boost Mode (if < 85)
+6. Launches Step 2 session → writes Resume.yaml, compiles resume, runs audits
+7. Launches Step 3 session → writes Cover_Letter.yaml, compiles, runs Obsidian sync
 
 Each session starts with a clean context — no accumulation from previous steps. The YAML schemas are the contract between steps. Prompt templates documented in `prompts/step1.md`, `prompts/step2.md`, `prompts/step3.md`.
 
@@ -186,7 +189,7 @@ Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from
 
 Read `03_cover_letter.md`. Formal Geschäftsbrief cover letter grounded in project metrics, compiled to PDF.
 
-**Output:** `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf`/`Anschreiben.pdf`.
+Signature image (`okf/SAGAR_MARTHANDAN_signature.png`) auto-embedded between closing and typed name if present. Override via YAML `signature_image` field or `LLM_CV_CANDIDATE_SIGNATURE` env var. Falls back to typed name only if file missing.
 
 ---
 

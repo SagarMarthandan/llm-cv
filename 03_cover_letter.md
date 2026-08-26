@@ -53,7 +53,7 @@ paragraphs:
   - "[P3: Deep dive project 2 with metrics]"
   - "[P4: B1 German, LLMs/RAG (if archetype), availability]"
 closing: "Mit freundlichen Grüßen, / Sincerely,"
-signature_name: "Sagar Marthandan"
+signature_image: "okf/SAGAR_MARTHANDAN_signature.png"  # optional — path to signature PNG (transparent bg). Omit/leave empty to use typed name only.
 ```
 
 ## Compilation

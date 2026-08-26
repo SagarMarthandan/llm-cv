@@ -18,12 +18,12 @@ import os
 import sys
 
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 
-from .utils import TEXT_DARK, format_address, register_lm_roman_10, strip_gender_tags
+from .utils import TEXT_DARK, format_address, register_lm_roman_10, strip_gender_tags, get_signature_path
 
 
 def create_cover_letter_pdf_reportlab(data, output_path):
@@ -140,7 +140,20 @@ def create_cover_letter_pdf_reportlab(data, output_path):
     sig_name = data.get('signature_name', '')
     if sig_name.isupper():
         sig_name = sig_name.title()
-    story.append(Paragraph(f"{closing}<br/><br/><br/><br/><b>{sig_name}</b>", left_body_style))
+    sig_image_path = get_signature_path(data)
+    if sig_image_path:
+        story.append(Paragraph(closing, left_body_style))
+        story.append(Spacer(1, 15))
+        from reportlab.lib.utils import ImageReader
+        ir = ImageReader(sig_image_path)
+        iw, ih = ir.getSize()
+        target_w = 1.5 * inch
+        target_h = target_w * ih / iw
+        story.append(Image(sig_image_path, width=target_w, height=target_h))
+        story.append(Spacer(1, 5))
+        story.append(Paragraph(f"<b>{sig_name}</b>", left_body_style))
+    else:
+        story.append(Paragraph(f"{closing}<br/><br/><br/><br/><b>{sig_name}</b>", left_body_style))
 
     # ── Anlagen (enclosures) ──────────────────────────────────────────────
     enclosures = data.get('enclosures', [])

@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.6.0 — 2026-08-26
+
+### Added
+
+- **Duplicate Application Check:** New `check_duplicate_application.py` script that searches the Obsidian vault (`~/Documents/Obsidian Vault/Job Search/Applications/`) and the Applications filesystem tree (`~/Applications/YYYY/MM/DD/`) for prior applications to the same company + role before the resume rewrite begins. Uses fuzzy matching with `SequenceMatcher` — normalizes company names (strips legal suffixes like GmbH, AG, SE & Co. KG) and role titles (strips gender markers like `(m/w/d)`, `(all genders)`). Thresholds: company ≥ 0.88, role ≥ 0.82 (lowered to 0.77 when company is near-exact). Deduplicates Obsidian + filesystem hits by normalized (company, role, date), preferring Obsidian source for ATS score data. Self-excludes the current application folder in `--app_dir` mode. Supports `--json` output for programmatic use.
+- **`run_pipeline.sh` integration:** After Step 1 completes, the wrapper runs the duplicate check against the new application folder. If duplicates are found, the user is prompted with three options: (1) Proceed — rewrite resume anyway, (2) Abort — stop pipeline, (3) Reuse prior resume — copies the most recent prior `Resume.yaml` as the Step 2 starting point.
+
+### Changed
+
+- **`SKILL.md`:** Pipeline Overview updated with Post-Step-1 Duplicate Application Check line. Wrapper script step list expanded from 5 to 7 steps (added duplicate check + Score-Boost Mode as explicit numbered steps). Key Scripts list includes `check_duplicate_application.py`.
+- **`README.md`:** Flow diagram updated with Dup Check stage. Pipeline Steps table adds Dup row. Session Splitting flow diagram includes duplicate check + user decision between Step 1 and Step 2. New "Duplicate Application Check" section with normalization details, thresholds, and standalone usage examples. File Structure updated with `check_duplicate_application.py`.
+
+### Files Modified
+
+- `check_duplicate_application.py` — new file (duplicate detection against Obsidian vault + Applications tree)
+- `run_pipeline.sh` — duplicate check section between Step 1 and Step 2 (set +e/set -e for exit code capture, user prompt with 3 options)
+- `SKILL.md` — Pipeline Overview, wrapper script step list, Key Scripts
+- `README.md` — flow diagram, Pipeline Steps table, Session Splitting flow, new Duplicate Application Check section, File Structure
+
+
 ## v1.5.0 — 2026-08-24
 
 ### Added

@@ -41,6 +41,15 @@ CANDIDATE_PHOTO = os.getenv(
     os.path.join(SKILL_DIR, "okf", "SAGAR_MARTHANDAN_foto.jpg")
 )
 
+# Candidate signature image for cover letter — embedded between closing and
+# typed name. PNG with transparent background recommended. Set to None/empty
+# to disable (cover letter falls back to typed name only).
+# Override via env var or YAML signature_image field.
+CANDIDATE_SIGNATURE = os.getenv(
+    "LLM_CV_CANDIDATE_SIGNATURE",
+    os.path.join(SKILL_DIR, "okf", "SAGAR_MARTHANDAN_signature.png")
+)
+
 # Diversity audit thresholds
 DIVERSITY_VENDOR_CLUSTER_THRESHOLD = int(os.getenv("LLM_CV_DIVERSITY_VENDOR_THRESHOLD", "3"))
 DIVERSITY_REFERRAL_RATE_MIN = float(os.getenv("LLM_CV_DIVERSITY_REFERRAL_MIN", "0.20"))

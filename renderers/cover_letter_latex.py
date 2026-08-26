@@ -12,7 +12,7 @@ ReportFallback renderer (see cover_letter.py dispatcher).
 import os
 import sys
 
-from .utils import escape_latex, run_pdflatex, format_address, strip_gender_tags
+from .utils import escape_latex, run_pdflatex, format_address, strip_gender_tags, get_signature_path
 
 
 def create_cover_letter_pdf_latex(data, output_path):
@@ -51,6 +51,13 @@ def create_cover_letter_pdf_latex(data, output_path):
     if raw_sig.isupper():
         raw_sig = raw_sig.title()
     signature_name = escape_latex(raw_sig)
+    # ── Signature image ───────────────────────────────────────────────────
+    sig_image_path = get_signature_path(data)
+    sig_image_block = "\\vspace{30pt} \\\\"
+    if sig_image_path:
+        # LaTeX needs forward slashes in paths even on Windows
+        sig_tex_path = sig_image_path.replace('\\', '/')
+        sig_image_block = f"\\includegraphics[width=1.5in]{{{sig_tex_path}}} \\\\\n\\vspace{{5pt}} \\\\"
 
     # ── Anlagen (enclosures) ──────────────────────────────────────────────
     enclosures = data.get('enclosures', [])
@@ -86,6 +93,7 @@ def create_cover_letter_pdf_latex(data, output_path):
 
     tex_content = f"""\\documentclass[11pt,a4paper]{{article}}
 \\usepackage[utf8]{{inputenc}}
+\\usepackage{{graphicx}}
 \\usepackage[margin=1.0in]{{geometry}}
 \\usepackage[T1]{{fontenc}}
 \\usepackage{{lmodern}}
@@ -130,7 +138,7 @@ def create_cover_letter_pdf_latex(data, output_path):
 \\vspace{{12pt}}
 
 {closing_val} \\\\
-\\vspace{{30pt}} \\\\
+{sig_image_block}
 \\textbf{{{signature_name}}}
 {enclosures_block}
 {footer_block}

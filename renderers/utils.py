@@ -700,3 +700,33 @@ def format_address(address, latex: bool = False) -> str:
             return " \\\\\n  ".join([escape_latex(line) for line in address.split("\n")])
         else:
             return address.replace("\n", "<br/>")
+
+
+def get_signature_path(data: dict) -> str | None:
+    """Resolve the signature image path from YAML signature_image or config default.
+
+    Checks data['signature_image'] first (absolute or skill-relative path),
+    then falls back to config.CANDIDATE_SIGNATURE. Returns the absolute path
+    if the file exists, else None.
+    """
+    import os
+    sig = data.get('signature_image', '') if isinstance(data, dict) else ''
+    if sig:
+        if os.path.isabs(sig):
+            candidates = [sig]
+        else:
+            candidates = [
+                sig,
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', sig),
+            ]
+        for c in candidates:
+            if os.path.exists(c):
+                return os.path.abspath(c)
+    # Fall back to config default
+    try:
+        from config import CANDIDATE_SIGNATURE
+        if CANDIDATE_SIGNATURE and os.path.exists(CANDIDATE_SIGNATURE):
+            return os.path.abspath(CANDIDATE_SIGNATURE)
+    except Exception:
+        pass
+    return None

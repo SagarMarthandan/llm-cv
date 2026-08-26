@@ -220,6 +220,50 @@ fi
 
 [[ -n "$APP_DIR" && -f "$APP_DIR/ATS_Report.yaml" ]] || die "Step 1 did not produce ATS_Report.yaml. Check /tmp/llm-cv-step1.log"
 
+###############################################################################
+# Duplicate Application Check (before resume rewrite)
+###############################################################################
+log "=== Duplicate Application Check ==="
+set +e
+DUP_OUTPUT=$("$VENV_PYTHON" "$SCRIPT_DIR/check_duplicate_application.py" "$APP_DIR" 2>&1)
+DUP_EXIT=$?
+set -e
+
+if [[ "$DUP_EXIT" -ne 0 ]]; then
+    echo ""
+    warn "$DUP_OUTPUT"
+    echo ""
+    echo "You have already applied to this job (or a very similar one)."
+    echo "The prior application(s) above are listed with dates and ATS scores."
+    echo ""
+    PS3="How do you want to proceed? (1-3): "
+    select dup_choice in "Proceed — rewrite resume anyway" "Abort — stop pipeline" "Proceed — but reuse prior resume as starting point"; do break; done
+
+    case "$dup_choice" in
+        "Proceed — rewrite resume anyway")
+            ok "Proceeding with new resume rewrite"
+            ;;
+        "Abort — stop pipeline")
+            die "Pipeline aborted by user — duplicate application detected."
+            ;;
+        "Proceed — but reuse prior resume as starting point")
+            # Find the most recent prior application folder from the check output
+            PRIOR_DIR=$(echo "$DUP_OUTPUT" | grep "Source: filesystem" | head -1 | sed 's/.*Path: //' | tr -d ' ')
+            if [[ -n "$PRIOR_DIR" && -d "$PRIOR_DIR" && -f "$PRIOR_DIR/Resume.yaml" ]]; then
+                cp "$PRIOR_DIR/Resume.yaml" "$APP_DIR/Resume.yaml"
+                ok "Copied prior resume from: $PRIOR_DIR"
+                ok "Step 2 will use this as the starting point."
+            else
+                warn "Could not find a prior Resume.yaml to copy. Proceeding with standard rewrite."
+            fi
+            ;;
+    esac
+else
+    ok "No prior applications found for this company + role."
+fi
+
+echo ""
+
 ok "Application folder: $APP_DIR"
 
 ###############################################################################
