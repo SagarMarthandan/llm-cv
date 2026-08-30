@@ -55,9 +55,9 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 |:---|:---|:---|
 | **0** (optional) | Scrape JD from URL. Jina Reader for JS-SPA sites, webfetch for static, manual paste fallback. | Clean JD text |
 | **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (16 → top 6), JD archival, location tailoring. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
-| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning, 3-line project summaries, JD-relevant skills only, optional Score-Boost Mode when initial ATS score < 85), LaTeX/ReportLab compilation, visual layout audit, parse-integrity audit. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
+| **2** | Resume rewrite (skill gap closure, keyword stuffing decision, archetype tuning, 3-line project summaries, JD-relevant skills only, optional Score-Boost Mode when initial ATS score < 85), LaTeX/ReportLab compilation (NO photo stamping in ReportFallback), visual layout audit (zero empty trailing lines), parse-integrity audit, AI watermark check. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 | **Dup** | Duplicate application check. Searches Obsidian vault + Applications filesystem tree for prior applications to the same company + role. Fuzzy-matches company (strips legal suffixes) and role (strips gender markers). User chooses: proceed, abort, or reuse prior resume as starting point. | `check_duplicate_application.py` output (stdout) |
-| **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
+| **3** | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose, AI watermark check. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **Post** | Obsidian vault sync + folder sort into date tree. | Obsidian notes, sorted application folder |
 
 ## Token Optimization
@@ -87,10 +87,35 @@ The pipeline documentation was optimized to minimize token consumption for LLM-b
 Resumes compiled in LaTeX mode automatically get the candidate's headshot (`okf/SAGAR_MARTHANDAN_foto.jpg`) stamped onto the top-right corner of page 1 as a post-processing step. The photo aligns with the name text at the top and sits just above the first section separator line.
 
 - **LaTeX mode:** Photo stamped automatically (1.40in, top-right)
-- **ReportFallback mode:** No photo stamping — add manually via a PDF editor if needed
+- **ReportFallback mode:** NO photo stamping — `stamp_photo.py` is never invoked; the `resume.py` dispatcher guards this with a `mode == 'latex'` check
 - **Disable per-application:** Set `contact_info.photo: null` in `Resume.yaml`
 - **Custom photo:** Set `contact_info.photo: /path/to/photo.jpg` in `Resume.yaml`
 - **Override default:** Set `LLM_CV_CANDIDATE_PHOTO` env var
+
+## AI Watermark Check
+
+After every resume and cover letter compilation, `check_watermarks.py` scans the generated YAML and PDF files for AI provenance marks. The check runs automatically as the last step of each compilation block (Step 2 Step E, Step 3 compilation).
+
+**Three detection layers** (adapted from the `remove-ai-marks` skill):
+
+| Layer | What it checks |
+|:---|:---|
+| **A — Invisible Unicode** | Zero-width chars (ZWSP, ZWNJ, ZWJ, BOM), bidi controls (LRE/RLO/LRI), tag characters (U+E0001–E007F), variation selectors, space homoglyphs in YAML text |
+| **B — C2PA binary markers** | JUMBF, c2pa, contentcredentials, c2ma in PDF non-stream data (strips FlateDecode streams to avoid false positives from compressed photo images) |
+| **C — PDF metadata** | XMP packets (`<?xpacket`, `<x:xmpmeta`, `<rdf:RDF`), AI vendor strings in metadata fields (Claude, Anthropic, OpenAI, SynthID, AI generated, Content Credentials) |
+
+**Exit codes:** 0 = clean, 1 = marks found, 2 = usage error. The script detects only — it does NOT modify files.
+
+```bash
+# Individual files
+.venv/bin/python check_watermarks.py Resume.yaml SAGAR_MARTHANDAN_Resume.pdf
+
+# Entire application folder
+.venv/bin/python check_watermarks.py --dir "/path/to/application/"
+
+# JSON output
+.venv/bin/python check_watermarks.py --json Resume.yaml SAGAR_MARTHANDAN_Resume.pdf
+```
 
 ## Score-Boost Mode
 
@@ -136,7 +161,6 @@ Can also be run standalone:
 | `description` | One-line summary |
 | `technologies` | Comma-separated tech stack |
 | `archetypes` | Role archetypes this project fits |
-| `repo_url` | GitHub URL (empty string if none) |
 | `bullets` | 8-10 detailed bullets with quantified metrics (catalog source; resume uses 3) |
 | `keywords` | Search/matching keywords |
 
@@ -159,11 +183,10 @@ llm-cv/
 ├── config.py                         # Location lookup, candidate info
 ├── yaml_to_pdf.py                    # PDF compilation entry point
 ├── resume_parseability.py            # ATS parse-integrity audit
-├── stamp_photo.py                    # Candidate photo stamping (LaTeX post-process)
+├── stamp_photo.py                    # Candidate photo stamping (LaTeX ONLY — never ReportFallback)
 ├── sync_to_obsidian.py               # Obsidian sync entry point
+├── check_watermarks.py                # AI watermark/provenance check (run after every compilation)
 ├── check_duplicate_application.py      # Duplicate application detection (Obsidian vault + filesystem)
-├── obsidian_folder_sort.py           # Folder sorting logic
-├── organize_applications.py          # Application folder organization
 ├── track_outcomes.py                 # Outcome tracking
 ├── okf_diversity_audit.py            # Weekly diversity audit (standalone)
 ├── renderers/                        # 14 LaTeX + ReportLab renderers
@@ -201,12 +224,12 @@ Session 1 (Step 1): ~10 calls, ~20K base context
 
 Session 2 (Step 2): ~12 calls, ~11K base context
     ↓ reads Step 1 outputs from disk
-    ↓ writes Resume.yaml, compiles resume, runs audits
+    ↓ writes Resume.yaml, compiles resume (NO photo stamping in ReportFallback), runs audits, runs AI watermark check
     ↓ session ends — clean context
 
 Session 3 (Step 3): ~8 calls, ~8K base context
     ↓ reads Step 1+2 outputs from disk
-    ↓ writes Cover_Letter.yaml, compiles, runs Obsidian sync
+    ↓ writes Cover_Letter.yaml, compiles, runs AI watermark check, runs Obsidian sync
 ```
 
 **How steps chain:** The YAML schemas are the contract between steps. `ATS_Report.yaml` carries `render_mode`, `resume_style`, `language`, `application_source`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, and `closest_candidate_location` — all read by Step 2 and Step 3 from disk. The wrapper script collects the keyword stuffing decision and Score-Boost Mode decision (not persisted to disk) between Step 1 and Step 2 and passes them inline. If the initial ATS score is < 85, the user is prompted to opt in to Score-Boost Mode before Step 2 launches.

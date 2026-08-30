@@ -31,11 +31,13 @@ Execute Step 2 completely:
 If score_boost_mode is true, apply Score-Boost measures from prompts/score_boost.md during the rewrite: Measures 1-3 (student framing, JD phrase weaving, adjacent skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric) in §5 Post-Rewrite ATS Rescoring.
 
 1. Write Resume.yaml with all projects, skills, experience
-2. Compile the resume (LaTeX: tex-only → pdflatex × 2 → stamp photo; ReportFallback: single compile)
+2. Compile the resume (LaTeX: tex-only → pdflatex × 2 → stamp photo; ReportFallback: single compile, NO photo stamping)
 3. Run layout audit → Layout_Audit_Report.yaml
 4. Post-rewrite ATS rescoring → update post_rewrite_ats_score in ATS_Report.yaml
 5. Run parseability audit → Parseability_Report.yaml + .pdf
 6. Recompile ATS_Report.pdf with post-rewrite scores
+7. Verify page fill — zero empty trailing lines at bottom. If under-filled, add project prose or technical skills per §2.5 Space-Fill Directive. Half-empty = FAIL.
+8. Run AI watermark check: `check_watermarks.py Resume.yaml SAGAR_MARTHANDAN_Resume.pdf` — exit 0 = clean, exit 1 = marks found. Investigate any flags before proceeding.
 
 Do NOT ask any questions — all answers are provided above.
 Do NOT proceed to Step 3. This session handles Step 2 only.

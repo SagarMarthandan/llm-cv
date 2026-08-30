@@ -24,7 +24,8 @@ First Action answers (already collected — do NOT use the ask tool):
 Execute Step 3 completely:
 1. Write Cover_Letter.yaml
 2. Compile the cover letter PDF
-3. Run Obsidian sync: sync_to_obsidian.py "{app_dir}" --sort
+3. Run AI watermark check: check_watermarks.py Cover_Letter.yaml SAGAR_MARTHANDAN_Cover_Letter.pdf — exit 0 = clean, exit 1 = marks found. Investigate any flags before proceeding.
+4. Run Obsidian sync: sync_to_obsidian.py "{app_dir}" --sort
 
 Do NOT ask any questions — all answers are provided above.
 This is the final step — after completion, the pipeline is done.

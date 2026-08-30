@@ -10,7 +10,9 @@ After all 3 steps complete, verify:
 - [ ] `SAGAR_MARTHANDAN_Resume.tex` / `SAGAR_MARTHANDAN_Lebenslauf.tex` & `SAGAR_MARTHANDAN_Cover_Letter.tex` / `SAGAR_MARTHANDAN_Anschreiben.tex` are preserved in the folder
 - [ ] `Layout_Audit_Report.yaml` is generated with all eye-test diagnostics at Pass status
 - [ ] `Parseability_Report.yaml` & `Parseability_Report.pdf` are generated with overall status PASS (100% keyword recovery, all section headers detected, 5/5 contact fields, no unicode corruptions)
+- [ ] `check_watermarks.py` run on Resume.yaml + resume PDF — exit 0 (clean, no AI watermarks/C2PA/provenance marks)
 - [ ] `Cover_Letter.yaml` & `SAGAR_MARTHANDAN_Cover_Letter.pdf` / `SAGAR_MARTHANDAN_Anschreiben.pdf` are generated with the tailored closest location in the sender address and date fields
+- [ ] `check_watermarks.py` run on Cover_Letter.yaml + cover letter PDF — exit 0 (clean, no AI watermarks/C2PA/provenance marks)
 - [ ] Professional Experience bullets are single-line, <= 105 chars (per 02 §Layout Constraints)
 - [ ] Projects in `name --- [GitHub] --- summary` format, summary <= 300 chars (<= 280 German), <= 3 lines (per 02 §Layout Constraints)
 - [ ] Summary is exactly 2 lines, <= 200 chars (<= 170 German) (per 02 §Layout Constraints) — STRICT, no compromise

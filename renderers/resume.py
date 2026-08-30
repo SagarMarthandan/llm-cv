@@ -59,9 +59,9 @@ def create_resume_pdf(data, output_path):
         else:
             create_resume_pdf_latex(data, output_path)
 
-    # Post-processing: stamp photo onto the final PDF's top-right corner
-    # Only for LaTeX mode — ReportFallback users can add the photo manually
-    # via a PDF editor if needed.
+    # Post-processing: stamp photo onto the final PDF's top-right corner.
+    # LaTeX ONLY — ReportFallback resumes must NEVER have a photo overlaid.
+    # The mode == 'latex' guard is intentional and must not be removed.
     photo = get_photo_path(data)
     if photo and mode == 'latex':
         stamp_photo_on_pdf(output_path, photo, render_mode=mode)

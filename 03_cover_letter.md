@@ -65,7 +65,10 @@ cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 
 # German
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "Cover_Letter.yaml" "SAGAR_MARTHANDAN_Anschreiben.pdf"
-```
+
+# AI watermark check (mandatory)
+/home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/check_watermarks.py" "Cover_Letter.yaml" "SAGAR_MARTHANDAN_Cover_Letter.pdf"
+# German: substitute "SAGAR_MARTHANDAN_Anschreiben.pdf"
 Renderer reads `render_mode` — `latex` (default) or `reportfallback`. Both produce same Geschäftsbrief layout.
 
 ## Post-Pipeline: Obsidian Sync

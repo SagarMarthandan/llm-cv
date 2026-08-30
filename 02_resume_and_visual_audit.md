@@ -100,13 +100,14 @@ Resume MUST fill exactly ONE full A4 page — no empty space at bottom, no spill
 
 ## 2.5 Space-Fill Directive (MANDATORY — One Full Page)
 
-After initial compilation, resume MUST be full: content reaches bottom margin, ≤1 line trailing whitespace, no page-2 spill. If under-filled:
+After initial compilation, resume MUST be full: content reaches bottom margin, zero empty trailing lines, no page-2 spill. If under-filled (last text line more than ~10% above page bottom):
 
 0. **Maximize character budgets first** (zero-risk): Summary → 200/170 chars. Projects → 180-240/160-220 chars. Experience bullets → 100-105 chars.
 1. **Add technical skills** from `skill_gaps` (respect `keyword_stuffing` decision).
 2. **Add one more project** from `project_info.md` (next-ranked, not already in resume). Same format, 3 bullets, 180-240 chars.
-3. **Re-compile and re-audit.** Target: bottom margin reached, ≤1 line trailing whitespace, no gaps >2 empty lines, exactly 1 page. If overflow → trim or swap weaker project.
-4. **Verify fullness on final PDF.** Last text line within bottom ~10% of page. If not, iterate 0-3.
+3. **Fill remaining 1-2 lines with prose** — extend a project bullet with an additional outcome/metric, or add a 4th bullet to an existing project. Do NOT leave 1-2 empty lines at the bottom; convert them into content.
+4. **Re-compile and re-audit.** Target: bottom margin reached, zero trailing empty lines, no gaps >2 empty lines internally, exactly 1 page. If overflow → trim or swap weaker project.
+5. **Verify fullness on final PDF.** Last text line within bottom ~10% of page. If not, iterate 0-4.
 
 > **ANTI-HALLUCINATION — Space-Fill:** Projects from `project_info.md` only. Skills from `skill_gaps` (if `keyword_stuffing: false`, only genuine skills). No inventing projects or skills to fill space.
 
@@ -115,7 +116,7 @@ After initial compilation, resume MUST be full: content reaches bottom margin, �
 - Apply **Stop-Slop** per SKILL.md §"Stop-Slop".
 - **Tools-Line Deduplication:** No bullet that just names a header tool. Reinforcement allowed only with added action/outcome. Keep tools lines to 3-5 JD-aligned entries.
 - **Orphan Punctuation:** Verify no orphan periods, double periods, spaces before punctuation. Run `--check-tex` and scan PDF.
-- **Page Fill Density (MANDATORY):** (a) exactly 1 page, (b) last line within bottom ~10%, (c) no internal gap >2 empty lines. Report as `page_fill_density` in `Layout_Audit_Report.yaml`.
+- **Page Fill Density (MANDATORY):** (a) exactly 1 page, (b) last line within bottom ~10%, (c) zero empty trailing lines at bottom, (d) no internal gap >2 empty lines. Report as `page_fill_density` in `Layout_Audit_Report.yaml`.
 - **Self-Correction:** If violations, immediately adjust text parameters. v2 only if >3 bullets changed or entire section restructured.
 - Write findings to `Layout_Audit_Report.yaml`.
 
@@ -186,7 +187,7 @@ If any name doesn't match catalog exactly → replace with real catalog project.
 ```yaml
 type: layout_audit_report
 eye_test_diagnostics:
-  page_fill_density: { status: "Pass/Fail", feedback: "Exactly 1 page, no trailing whitespace, no page-2 spill. Fail = under-filled page." }
+  page_fill_density: { status: "Pass/Fail", feedback: "Exactly 1 page, zero empty trailing lines at bottom, no page-2 spill. Fail = under-filled page or empty lines at end." }
   page_boundary_splits: { status: "Pass/Fail", feedback: "..." }
   summary_cognitive_load: { status: "Pass/Fail", feedback: "..." }
   skills_block_density: { status: "Pass/Fail", feedback: "..." }
@@ -283,16 +284,20 @@ pdflatex -interaction=nonstopmode "SAGAR_MARTHANDAN_Resume.tex"
 # Step D: Parseability audit
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/resume_parseability.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
 # German: substitute "SAGAR_MARTHANDAN_Lebenslauf.pdf"
+
+# Step E: AI watermark check (mandatory — exit 1 = marks found, investigate before proceeding)
+/home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/check_watermarks.py" "Resume.yaml" "SAGAR_MARTHANDAN_Resume.pdf"
 ```
 
-### ReportFallback Mode (single compile + audit)
+### ReportFallback Mode (single compile + audit — NO photo stamping)
 ```bash
 cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "Resume.yaml" "SAGAR_MARTHANDAN_Resume.pdf"
-/home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/stamp_photo.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/resume_parseability.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
-```
+/home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/check_watermarks.py" "Resume.yaml" "SAGAR_MARTHANDAN_Resume.pdf"
+
+> **NO PHOTO STAMPING in ReportFallback mode.** `stamp_photo.py` is LaTeX-only. ReportFallback resumes must never have a photo overlaid — neither via `stamp_photo.py` nor any other method. The `resume.py` dispatcher already guards this (`mode == 'latex'` check), but do NOT invoke `stamp_photo.py` manually either.
 
 ---
 ### INPUTS FOR PROCESSING

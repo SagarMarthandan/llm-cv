@@ -137,7 +137,7 @@ def create_cover_letter_pdf_reportlab(data, output_path):
 
     # ── Closing + signature ───────────────────────────────────────────────
     closing = data.get('closing', 'Mit freundlichen Grüßen,')
-    sig_name = data.get('signature_name', '')
+    sig_name = data.get('signature_name', '') or raw_sender
     if sig_name.isupper():
         sig_name = sig_name.title()
     sig_image_path = get_signature_path(data)
@@ -149,7 +149,7 @@ def create_cover_letter_pdf_reportlab(data, output_path):
         iw, ih = ir.getSize()
         target_w = 1.5 * inch
         target_h = target_w * ih / iw
-        story.append(Image(sig_image_path, width=target_w, height=target_h))
+        story.append(Image(sig_image_path, width=target_w, height=target_h, hAlign='LEFT'))
         story.append(Spacer(1, 5))
         story.append(Paragraph(f"<b>{sig_name}</b>", left_body_style))
     else:

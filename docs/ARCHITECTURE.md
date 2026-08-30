@@ -41,23 +41,22 @@ Step 2: Resume Rewrite & Visual Layout Audit
     ├── Read project_info.md + ATS_Report.yaml (render_mode, resume_style, language from here)
     ├── Keyword stuffing decision (user chooses: Add all / No stuffing / Selective)
     ├── Generate Resume.yaml (archetype-tailored, skill gap closure)
-    ├── Compile via LaTeX (tex-only → pdflatex × 2 → stamp photo) or ReportLab fallback
-    ├── Visual layout audit (character counts, page splits, Stop-Slop, page-fill density)
+    ├── Compile via LaTeX (tex-only → pdflatex × 2 → stamp photo) or ReportLab fallback (NO photo stamping)
+    ├── Visual layout audit (character counts, page splits, Stop-Slop, page-fill density, zero empty trailing lines)
     ├── Parse-integrity audit (resume_parseability.py — auto-recovers via ReportFallback)
+    ├── AI watermark check (check_watermarks.py — scans YAML + PDF for C2PA, XMP, invisible Unicode, vendor strings)
     └── Post-rewrite ATS rescoring (updates post_rewrite_ats_score in ATS_Report.yaml)
-    → Outputs: Resume.yaml, SAGAR_MARTHANDAN_Resume.pdf, Layout_Audit_Report.yaml, Parseability_Report.yaml/.pdf
 
 Step 3: Cover Letter Generation
     ├── Read ATS_Report.yaml + Job_Description.yaml + project_info.md (render_mode, language from ATS_Report.yaml)
     ├── Generate Cover_Letter.yaml (DIN 5008 Form B, metric-grounded)
     ├── Compile via LaTeX (or ReportLab fallback)
+    ├── AI watermark check (check_watermarks.py — scans Cover_Letter.yaml + PDF)
     └── Obsidian vault sync + folder sort
-    → Outputs: Cover_Letter.yaml, SAGAR_MARTHANDAN_Cover_Letter.pdf
 
 Post-Pipeline:
     ├── sync_to_obsidian.py --sort (Obsidian vault sync + folder sort)
-    ├── stamp_photo.py (LaTeX mode only — stamps candidate photo onto resume PDF)
-    └── okf_diversity_audit.py (standalone weekly tool, not per-application)
+    ├── stamp_photo.py (LaTeX mode only — stamps candidate photo onto resume PDF; NEVER used in ReportFallback mode)
 ```
 
 ### Session-Split Mode (token-efficient — recommended)
@@ -72,12 +71,12 @@ Session 1 (Step 1): ~10 API calls, ~20K base context
 
 Session 2 (Step 2): ~12 API calls, ~11K base context
     reads: SKILL.md + 02_resume_and_visual_audit.md + ATS_Report.yaml + project_info.md + base resume
-    writes: Resume.yaml, Resume.tex, Resume.pdf, Layout_Audit_Report.yaml, Parseability_Report.yaml/.pdf
+    writes: Resume.yaml, Resume.tex, Resume.pdf, Layout_Audit_Report.yaml, Parseability_Report.yaml/.pdf, watermark check (check_watermarks.py)
     ↓ session ends — clean context
 
 Session 3 (Step 3): ~8 API calls, ~8K base context
     reads: SKILL.md + 03_cover_letter.md + ATS_Report.yaml + Job_Description.yaml + project_info.md
-    writes: Cover_Letter.yaml, Cover_Letter.pdf, Obsidian notes
+    writes: Cover_Letter.yaml, Cover_Letter.pdf, watermark check (check_watermarks.py), Obsidian notes
 ```
 
 **Inter-step contract:** `ATS_Report.yaml` carries `render_mode`, `resume_style`, `language`, `application_source`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, `closest_candidate_location` — all read by Step 2 and Step 3 from disk. The wrapper script collects the keyword stuffing decision (not persisted to disk) between Step 1 and Step 2 and passes it inline in the Step 2 prompt.
@@ -159,14 +158,14 @@ The agent reads this catalog in Step 1 and ranks the top 6 projects for the JD. 
 
 ## File Inventory
 
-### Pipeline Scripts (10 Python files)
-
+### Pipeline Scripts (11 Python files)
 | File | Role |
 |:---|:---|
 | `config.py` | Location lookup, candidate cities, geocode table |
 | `yaml_to_pdf.py` | PDF compilation entry point (routes YAML to renderers) |
 | `resume_parseability.py` | ATS parse-integrity audit on compiled PDF (auto-recovers via ReportFallback) |
-| `stamp_photo.py` | Candidate photo stamping onto LaTeX-mode resume PDFs |
+| `stamp_photo.py` | Candidate photo stamping onto LaTeX-mode resume PDFs (NEVER used in ReportFallback mode) |
+| `check_watermarks.py` | AI watermark/provenance check — scans YAML + PDF for C2PA, XMP, invisible Unicode, vendor strings (run after every compilation) |
 | `organize_applications.py` | Application folder organization (date tree sort) |
 | `obsidian_sync_core.py` | Obsidian sync core logic |
 | `obsidian_folder_sort.py` | Folder sorting logic |

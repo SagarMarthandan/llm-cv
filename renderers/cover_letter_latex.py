@@ -47,7 +47,7 @@ def create_cover_letter_pdf_latex(data, output_path):
     paragraphs_tex = "\n\n".join([escape_latex(p) for p in data.get('paragraphs', [])])
 
     closing_val    = escape_latex(data.get('closing', ''))
-    raw_sig        = data.get('signature_name', '')
+    raw_sig        = data.get('signature_name', '') or raw_sender
     if raw_sig.isupper():
         raw_sig = raw_sig.title()
     signature_name = escape_latex(raw_sig)

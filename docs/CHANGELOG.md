@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.7.0 — 2026-08-30
+
+### Added
+
+- **AI watermark/provenance checker (`check_watermarks.py`):** New post-compilation script that scans generated PDFs and YAML files for AI provenance marks across three layers: (A) invisible Unicode in YAML text (zero-width chars, bidi controls, tag characters, variation selectors, space homoglyphs), (B) C2PA/Content Credentials binary markers in PDF non-stream data (JUMBF, c2pa, contentcredentials — stream-stripped to avoid false positives from compressed photo image data), (C) PDF metadata vendor strings (Claude, Anthropic, OpenAI, SynthID, AI generated, Content Credentials, XMP packets). Detection logic adapted from the `remove-ai-marks` skill. Exit 0 = clean, exit 1 = marks found. Supports `--dir` for folder scans and `--json` for programmatic output. Does NOT modify files — detection only.
+- **Watermark check wired into pipeline:** `check_watermarks.py` runs after every resume and cover letter compilation (Step 2 Step E, Step 3 compilation block). Added to SKILL.md Step 2 Hard Constraints, step2/step3 prompt templates, `run_pipeline.sh` inline instructions, and completion checklist (2 new items).
+
+### Fixed
+
+- **Photo stamping in ReportFallback mode (bug):** `stamp_photo.py` was being invoked in the ReportFallback compilation block of `02_resume_and_visual_audit.md`, causing photos to be overlaid on ReportFallback resumes (last affected: Redcare Pharmacy AI Solutions Engineer, 2026-08-29). The `resume.py` dispatcher already guarded this (`mode == 'latex'`), but the step doc's compilation commands called `stamp_photo.py` directly. Removed the call from the ReportFallback block; added explicit "NO photo stamping" callout and hard constraint. Redcare resume recompiled clean (0 images, 45KB vs 421KB).
+
+### Changed
+
+- **Space-Fill Directive strengthened:** `02_resume_and_visual_audit.md` §2.5 now requires "zero empty trailing lines" (was "≤1 line trailing whitespace"). New step 3 in the fill procedure: "Fill remaining 1-2 lines with prose — extend a project bullet with an additional outcome/metric, or add a 4th bullet to an existing project." Page Fill Density audit check (§3) adds "(c) zero empty trailing lines at bottom." Layout audit schema `page_fill_density` feedback updated. SKILL.md Step 2 Hard Constraints adds "Page fill — zero empty trailing lines" constraint. Step 2 prompt and `run_pipeline.sh` add step 7: "Verify page fill — zero empty trailing lines."
+- **`renderers/resume.py` dispatcher comment updated:** Photo stamping comment now explicitly states "LaTeX ONLY — ReportFallback resumes must NEVER have a photo overlaid. The `mode == 'latex'` guard is intentional and must not be removed."
+
+### Files Modified
+
+- `check_watermarks.py` — new file (AI watermark/provenance detection, 3 layers, stream-aware PDF scanning)
+- `02_resume_and_visual_audit.md` — removed `stamp_photo.py` from ReportFallback block; added "NO photo stamping" callout; strengthened §2.5 Space-Fill Directive (zero empty trailing lines, new step 3 prose-fill); updated §3 Page Fill Density check; updated layout audit schema; added Step E watermark check to LaTeX + ReportFallback compilation blocks
+- `03_cover_letter.md` — added watermark check to compilation block
+- `SKILL.md` — Key Scripts list includes `check_watermarks.py`; Step 2 Hard Constraints: added "No photo stamping in ReportFallback mode", "Page fill — zero empty trailing lines", "AI watermark check (mandatory post-compilation)"
+- `prompts/step2.md` — step 2 updated (NO photo stamping), step 7 (page fill), step 8 (watermark check)
+- `prompts/step3.md` — step 3 (watermark check)
+- `run_pipeline.sh` — Step 2 inline: item 2 (NO photo stamping), item 7 (page fill), item 8 (watermark check); Step 3 inline: item 3 (watermark check)
+- `99_completion_checklist.md` — 2 new items: resume watermark check, cover letter watermark check
+- `renderers/resume.py` — dispatcher comment updated (LaTeX-only photo guard is intentional)
+- `docs/ARCHITECTURE.md` — pipeline flow updated (watermark check step), file inventory updated (check_watermarks.py), stamp_photo.py note corrected
+- `README.md` — Photo Stamping section updated (ReportFallback: NO stamping, not "add manually"), new AI Watermark Check section, File Structure updated, Pipeline Steps table updated
+
+
 ## v1.6.0 — 2026-08-26
 
 ### Added
