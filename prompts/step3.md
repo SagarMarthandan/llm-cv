@@ -1,54 +1,66 @@
-# Step 3 Session Prompt Template
+# Session 3 Prompt Template (Cover Letter Writer)
 
-This file documents the prompt structure used by `run_pipeline.sh` for Step 3.
-The wrapper script generates this dynamically — this file is for reference/manual use.
+This file documents the prompt structure used by `run_pipeline.sh` for Session 3.
+Session 3 is a dedicated OMP session launched by bash in parallel with Session 2.
+The wrapper script generates this dynamically — this file is for reference.
 
 ## Prompt Structure
 
 ```
-Run the llm-cv pipeline Step 3 ONLY. This is the final step.
+Run the llm-cv pipeline Step 3 ONLY. Write a cover letter YAML file.
 
 Read skill://llm-cv (SKILL.md) and 03_cover_letter.md for full instructions.
 
 Application folder: {app_dir}
 
-Read these files from the application folder (do NOT re-paste):
-- ATS_Report.yaml (Step 1 output — archetype, closest_candidate_location, application_source)
-- Job_Description.yaml (Step 1 output — company, position, JD sections)
-- project_info.md (Step 1 output — tailored project list with metrics)
+Read these files from the application folder:
+- ATS_Report.yaml (render_mode, language, closest_candidate_location, application_source, weak_tie_contact, role_archetype)
+- Job_Description.yaml (company, position, JD sections)
+- project_info.md (tailored project list with metrics)
 
 First Action answers (already collected — do NOT use the ask tool):
 - render_mode: {latex|reportfallback}
 - language: {English|German}
 
-Execute Step 3 completely:
-1. Write Cover_Letter.yaml
-2. Compile the cover letter PDF
-3. Run AI watermark check: check_watermarks.py Cover_Letter.yaml SAGAR_MARTHANDAN_Cover_Letter.pdf — exit 0 = clean, exit 1 = marks found. Investigate any flags before proceeding.
-4. Run Obsidian sync: sync_to_obsidian.py "{app_dir}" --sort
+Write Cover_Letter.yaml to the application folder following the schema in 03_cover_letter.md.
 
+Key constraints:
+- Geschäftsbrief layout, max 4 paragraphs
+- English: 250-320 words / German: 180-240 words (single A4 page)
+- Ground tech skills in metrics from project_info.md
+- No resume rehash — cover letter carries info the resume does not
+- Integrate B1 German studies + GitHub portfolio
+- Archetype-conditional: only mention LLMs/RAG for AI archetypes
+- Anti-hallucination: metrics from project_info.md or catalog, no fabrication
+- Stop-slop: active voice, no -ly adverbs, no em-dashes
+
+Do NOT compile any PDFs. Just write Cover_Letter.yaml.
 Do NOT ask any questions — all answers are provided above.
-This is the final step — after completion, the pipeline is done.
+When you are done, print: "STEP 3 COMPLETE"
 ```
 
-## What Step 3 Reads
+## What Session 3 Reads
 - `SKILL.md` (via skill://llm-cv)
 - `03_cover_letter.md`
 - `ATS_Report.yaml` (from disk — Step 1 output)
 - `Job_Description.yaml` (from disk — Step 1 output)
 - `project_info.md` (from disk — Step 1 output)
 
-## What Step 3 Writes
+## What Session 3 Writes
 - `Cover_Letter.yaml`
-- `Cover_Letter.tex`/`SAGAR_MARTHANDAN_Cover_Letter.tex`
-- `SAGAR_MARTHANDAN_Cover_Letter.pdf`/`Anschreiben.pdf`
-- Obsidian vault notes (via sync_to_obsidian.py)
+- PDF compiled by bash after session ends
 
-## Token Budget (with Phase 3 slimming)
-- Base context: ~8K tokens (SKILL.md 3.5K + 03_doc 1.2K + ATS_Report ~2K + JD ~1K)
-- API calls: ~8
-- Total: ~120K tokens (vs ~660K in single-session mode)
+## Token Budget
+- Context: ~10K tokens (SKILL.md 5.5K + 03_doc 1.2K + ATS_Report 2K + JD 1K + project_info 2K)
+- API calls: ~6
+- Total: ~60K tokens
 
-## Total Pipeline (all 3 sessions)
-- Combined: ~490K tokens (vs ~2.5M single-session)
-- Savings: ~2M tokens per run (80% reduction)
+## Total Pipeline (3 sessions + bash)
+- Session 1 (ATS + ranking): ~100K tokens
+- Session 2 (resume + ATS rescoring): ~120K tokens
+- Session 3 (cover letter, parallel): ~60K tokens
+- Bash compilation: 0 tokens
+- Fix sessions (if needed): ~15K tokens each
+- Combined: ~280K tokens (vs ~2.5M single-session)
+- Savings: ~2.2M tokens per run (88% reduction)
+- Flash-model safe: no subagent spawning, no hub wait, no wave coordination

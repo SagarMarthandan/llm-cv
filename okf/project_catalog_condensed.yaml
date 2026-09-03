@@ -1,0 +1,680 @@
+projects:
+- title: Chicago Crime & Divvy Bike-Share Data Engineering Pipeline
+  description: End-to-end data pipeline (Spark, Kafka, Airflow, BigQuery, dbt, Terraform) correlating Chicago crime patterns with bike-share ridership, developed with parallel AI agents.
+  technologies: Python, Apache Spark, Apache Airflow, Apache Kafka, dbt, Google BigQuery, BigQuery ML, Terraform, GitHub Actions, Grafana, PostgreSQL, Docker, dlt, SQL
+  archetypes:
+  - Data Engineering
+  - Analytics Engineering
+  - Backend/Platform Engineering
+  - AI Engineer
+  business_problem: Correlating city crime patterns with bike-share ridership to test whether crime near stations affects usage, across 8.6M crime events and 50M+ trips with a BigQuery ML regression.
+  key_metrics: 8.6M crime events + 50M+ Divvy trips; BigQuery ML R²=0.434, Pearson r=+0.20 across 1.46M station-days; 97.8% bytes saved via partition pruning; 84 dbt tests; 12-service Docker stack; 11+8 Grafana panels
+  transferable_skills:
+  - etl
+  - elt
+  - data warehousing
+  - data pipeline
+  - data modeling
+  - orchestration
+  - data quality
+  - streaming
+  - batch processing
+  - cloud data warehouse
+  - data architecture
+  - data ingestion
+  - data transformation
+  - analytics
+  - machine learning
+  - stream processing
+  - cloud infrastructure
+  - ci/cd
+  - observability
+  - geospatial analysis
+  - real-time data
+  repo_url: https://github.com/SagarMarthandan/chicago-data-pipeline
+  keywords:
+  - python
+  - sql
+  - apache spark
+  - apache airflow
+  - apache kafka
+  - dbt
+  - bigquery
+  - bigquery ml
+  - terraform
+  - github actions
+  - grafana
+  - postgresql
+  - docker
+  - dlt
+  - etl
+  - elt
+  - data warehousing
+  - data pipeline
+  - data modeling
+  - orchestration
+  - streaming
+  - batch processing
+  - cloud data warehouse
+  - data architecture
+  - machine learning
+  - ci/cd
+  - data quality
+  - analytics
+  - ai agents
+- title: NYC Taxi Analytics Pipeline (2025)
+  description: End-to-end GCP data pipeline ingesting NYC Taxi records with Terraform, Airbyte, Airflow, BigQuery, and dbt with CI/CD and data quality checks.
+  technologies: Airbyte, Airflow, BigQuery, Docker, Terraform, Python, GitHub Actions, dbt
+  archetypes:
+  - Data Engineering
+  - Analytics Engineering
+  - Backend/Platform Engineering
+  business_problem: Providing a governed NYC taxi trip analytics foundation on GCP with terraformed infrastructure, Airbyte ingestion, dbt star-schema marts, and quality-gated CI/CD for monthly fare, route, and demand analysis.
+  key_metrics: Monthly NYC Taxi Trip Records (2025) dataset; 4 analytics marts (monthly summary, route performance, payment breakdown, hourly demand); star schema with 3 dimension tables + fact_trips
+  transferable_skills:
+  - etl
+  - elt
+  - data pipeline
+  - data warehousing
+  - data modeling
+  - orchestration
+  - data quality
+  - cloud data warehouse
+  - data engineering
+  - python
+  - sql
+  - analytics
+  - infrastructure as code
+  - ci/cd
+  - star schema
+  - cloud data platform
+  - containerization
+  repo_url: https://github.com/SagarMarthandan/NYC-Bigquery
+  keywords:
+  - python
+  - sql
+  - airbyte
+  - airflow
+  - bigquery
+  - dbt
+  - terraform
+  - docker
+  - github actions
+  - etl
+  - elt
+  - data pipeline
+  - data warehousing
+  - data modeling
+  - orchestration
+  - data quality
+  - ci/cd
+  - infrastructure as code
+  - containerization
+  - analytics
+  - cloud data warehouse
+  - data engineering
+  - star schema
+- title: 'YouTube E2E: Advanced Data Engineering Pipeline'
+  description: Containerized ELT pipeline extracting YouTube channel analytics via Data API v3, processing through warehouse layers with Soda data quality gates.
+  technologies: Airflow, Docker, PostgreSQL, dbt, GitHub Actions, DBeaver, Soda, Redis, Python
+  archetypes:
+  - Data Engineering
+  - Analytics Engineering
+  business_problem: Turning YouTube channel analytics into a queryable, quality-gated warehouse with API extraction, drift-aware staging synchronization, core transformations, and Soda integrity checks on every run.
+  key_metrics: 3-DAG Airflow orchestration (produce_json, update_db, data_quality); batch-50 YouTube Data API v3 queries for quota efficiency; Shorts <=60s vs Normal >60s classification
+  transferable_skills:
+  - etl
+  - elt
+  - data pipeline
+  - data warehousing
+  - data modeling
+  - orchestration
+  - data quality
+  - data engineering
+  - python
+  - sql
+  - analytics
+  - containerization
+  - ci/cd
+  - api integration
+  - incremental loading
+  - data pipeline design
+  repo_url: https://github.com/SagarMarthandan/Youtube_E2E_DE
+  keywords:
+  - python
+  - sql
+  - airflow
+  - docker
+  - postgresql
+  - dbt
+  - github actions
+  - soda
+  - redis
+  - etl
+  - elt
+  - data pipeline
+  - data warehousing
+  - data modeling
+  - orchestration
+  - data quality
+  - containerization
+  - ci/cd
+  - analytics
+  - data engineering
+- title: F1 Ingestion - Formula 1 ELT Platform
+  description: End-to-end F1 data ingestion and transformation platform on Azure using Data Factory, Databricks, and Delta Lake with Medallion Architecture.
+  technologies: Azure Data Factory, Databricks, Spark, Delta Lake, ADLS Gen2, Azure Key Vault, PySpark, Airflow
+  archetypes:
+  - Data Engineering
+  business_problem: Building a Formula 1 analytics platform on Azure with Medallion-architecture ingestion of Ergast datasets, ADF orchestration, Databricks transformations, and Delta Lake ACID guarantees.
+  key_metrics: 8 entity notebooks (circuits, constructors, drivers, races, results, pit_stops, lap_times, qualifying) through Bronze->Silver->Gold; Delta Lake ACID upserts; service principal + Key Vault auth
+  transferable_skills:
+  - etl
+  - elt
+  - data pipeline
+  - data ingestion
+  - data transformation
+  - data engineering
+  - python
+  - sql
+  - orchestration
+  - cloud data warehouse
+  - medallion architecture
+  - data lakehouse
+  - cloud infrastructure
+  - data governance
+  - incremental loading
+  - spark engineering
+  - data quality
+  repo_url: https://github.com/SagarMarthandan/F1-AzureDatabricks
+  keywords:
+  - python
+  - sql
+  - azure data factory
+  - databricks
+  - spark
+  - pyspark
+  - delta lake
+  - adls gen2
+  - azure key vault
+  - airflow
+  - etl
+  - elt
+  - data pipeline
+  - data ingestion
+  - data transformation
+  - medallion architecture
+  - cloud data warehouse
+  - orchestration
+  - data engineering
+  - data quality
+- title: Airbnb Data Engineering Project (dbt + Snowflake + Dagster)
+  description: End-to-end dbt pipeline transforming raw Airbnb data into analytics-ready marts on Snowflake, orchestrated by Dagster with SCD Type 2 snapshots and incremental loading.
+  technologies: dbt, Snowflake, Dagster, Python, SQL
+  archetypes:
+  - Data Engineering
+  - Analytics Engineering
+  business_problem: Transforming raw Airbnb listings, hosts, and reviews into analytics-ready marts on Snowflake with SCD Type 2 history, incremental facts, and dbt-expectations quality checks.
+  key_metrics: SCD Type 2 snapshots (timestamp strategy, dbt_valid_from/to); incremental fct_reviews fact reducing Snowflake compute; 3 dimension models + 1 fact + full-moon review mart
+  transferable_skills:
+  - elt
+  - data modeling
+  - data warehouse
+  - data transformation
+  - data quality
+  - data engineering
+  - python
+  - sql
+  - orchestration
+  - incremental loading
+  - data warehousing
+  - scd type 2
+  - analytics
+  - business intelligence
+  - data marts
+  repo_url: https://github.com/SagarMarthandan/DBT-Airbnb-Practice-Project
+  keywords:
+  - python
+  - sql
+  - dbt
+  - snowflake
+  - dagster
+  - etl
+  - elt
+  - data modeling
+  - data warehouse
+  - data transformation
+  - data quality
+  - data engineering
+  - orchestration
+  - incremental loading
+  - scd type 2
+  - data marts
+  - cloud data warehouse
+  - analytics
+- title: BTC - Bitcoin - dbt Project Documentation
+  description: dbt pipeline processing Bitcoin transaction data in Snowflake, flattening nested structures and building whale-detection analytical models with versioned schemas.
+  technologies: dbt, Snowflake, Snowpipe, AWS SQS, AWS S3, Python, SQL, Git, Looker Studio
+  archetypes:
+  - Analytics Engineering
+  - Data Engineering
+  business_problem: Detecting whale-scale Bitcoin transactions from nested blockchain data with Snowflake flattening, USD valuation, versioned analytical models, and Snowpipe auto-ingestion.
+  key_metrics: Whale detection filters outputs >10 BTC; whale_top_10 ranks highest-volume addresses; whale_alerts v1/v2 model versioning; Snowpipe auto-ingestion via SQS
+  transferable_skills:
+  - elt
+  - data modeling
+  - data warehouse
+  - data transformation
+  - data engineering
+  - python
+  - sql
+  - data quality
+  - data visualization
+  - data warehousing
+  - incremental loading
+  - blockchain analytics
+  - orchestration
+  - api integration
+  repo_url: https://github.com/SagarMarthandan/BTC
+  keywords:
+  - python
+  - sql
+  - dbt
+  - snowflake
+  - snowpipe
+  - aws sqs
+  - aws s3
+  - git
+  - looker studio
+  - etl
+  - elt
+  - data modeling
+  - data warehouse
+  - data transformation
+  - data engineering
+  - data quality
+  - data visualization
+  - incremental loading
+  - data marts
+  - blockchain analytics
+- title: 'Ergast Formula 1 Data Engineering Mini Project: Databricks Medallion Architecture'
+  description: Databricks Medallion Architecture pipeline ingesting Ergast F1 data through Bronze, Silver, and Gold layers with Unity Catalog governance.
+  technologies: Databricks, PySpark, SQL, Delta Lake, ADLS Gen2, Unity Catalog
+  archetypes:
+  - Data Engineering
+  business_problem: Delivering an F1 race analytics dataset through a governed Databricks Medallion pipeline with Unity Catalog, from raw JSON to wins-per-driver Gold marts.
+  key_metrics: Bronze->Silver->Gold Medallion layers; driver_wins Gold mart (wins per driver); Unity Catalog formula1_dev with 3 schemas
+  transferable_skills:
+  - etl
+  - data pipeline
+  - data engineering
+  - python
+  - sql
+  - data transformation
+  - medallion architecture
+  - data governance
+  - elt
+  - data lakehouse
+  - spark engineering
+  - data quality
+  - analytics
+  - cloud data platform
+  repo_url: https://github.com/SagarMarthandan/Databricks-Mini-Project
+  keywords:
+  - python
+  - sql
+  - databricks
+  - pyspark
+  - delta lake
+  - adls gen2
+  - unity catalog
+  - etl
+  - data pipeline
+  - data engineering
+  - data transformation
+  - medallion architecture
+  - data governance
+  - data lakehouse
+  - data quality
+  - analytics
+- title: Weather Data Analytics Pipeline
+  description: End-to-end ELT pipeline ingesting real-time weather data from Weatherstack API, transforming with dbt, and visualizing via Apache Superset.
+  technologies: Airflow, Docker, PostgreSQL, Python, Redis, dbt, Apache Superset
+  archetypes:
+  - Data Engineering
+  - Analytics Engineering
+  business_problem: Continuous weather analytics from a live API with 1-minute ingestion, deduplicated dbt staging, daily marts, and Superset dashboards for temperature and wind trends.
+  key_metrics: 1-minute Airflow polling schedule; ingest-then-transform policy; daily-grain mart materialized as table for fast Superset queries
+  transferable_skills:
+  - etl
+  - elt
+  - data pipeline
+  - data engineering
+  - python
+  - sql
+  - orchestration
+  - data visualization
+  - analytics
+  - containerization
+  - real-time ingestion
+  - data modeling
+  - data quality
+  - time-series analysis
+  repo_url: https://github.com/SagarMarthandan/E2E-weather-data-report
+  keywords:
+  - python
+  - sql
+  - airflow
+  - docker
+  - postgresql
+  - redis
+  - dbt
+  - apache superset
+  - etl
+  - elt
+  - data pipeline
+  - data engineering
+  - orchestration
+  - data visualization
+  - analytics
+  - containerization
+  - real-time ingestion
+- title: 'Kafka FX Rates: Batch vs Stream Processing Walkthrough'
+  description: Kafka-driven pipeline processing FX rates from batch CSV files to real-time stream consumers for analytics and monitoring.
+  technologies: Apache Kafka, Python, Pandas, Jupyter
+  archetypes:
+  - Data Engineering
+  business_problem: Demonstrating batch vs streaming analytics on FX rates with a Kafka pipeline that turns a static CSV into a live consumer stream with real-time change analytics.
+  key_metrics: 1-second inter-message producer delay; single-partition topic on localhost:9092; real-time % change vs previous day 5 PM rate
+  transferable_skills:
+  - streaming
+  - real-time
+  - data pipeline
+  - data engineering
+  - python
+  - batch processing
+  - real-time data
+  - message queue
+  - producer consumer
+  - data pipeline design
+  - real-time analytics
+  - python scripting
+  repo_url: https://github.com/SagarMarthandan/mini-kafka-stream
+  keywords:
+  - python
+  - apache kafka
+  - pandas
+  - jupyter
+  - streaming
+  - real-time
+  - data pipeline
+  - data engineering
+  - batch processing
+  - message queue
+  - producer consumer
+  - real-time analytics
+- title: 'Adventure Works: Global Sales & Returns Dashboard'
+  description: Power BI dashboard analyzing global cycling equipment sales and returns using star schema modeling and advanced DAX time intelligence.
+  technologies: Power BI, DAX, M Language, CSV
+  archetypes:
+  - Data Analyst
+  - Analytics Engineering
+  business_problem: Executive sales and returns analytics for a global cycling retailer with a star-schema Power BI model, DAX time intelligence, growth targets, and What-If pricing scenarios.
+  key_metrics: 110% growth targets (revenue/orders); 3 fact + 4 dimension tables; What-If price adjustments (e.g., +5%); 90-day rolling profit + 10-day rolling revenue via DAX
+  transferable_skills:
+  - data visualization
+  - dashboard
+  - business intelligence
+  - data analyst
+  - bi
+  - reporting
+  - kpi tracking
+  - business analytics
+  - data storytelling
+  - self-service bi
+  - trend analysis
+  - etl
+  - sql
+  - data modeling
+  - star schema
+  - dashboarding
+  - time intelligence
+  - what-if analysis
+  - sales analytics
+  repo_url: https://github.com/SagarMarthandan/powerBI---Project
+  keywords:
+  - power bi
+  - dax
+  - m language
+  - power query
+  - csv
+  - data visualization
+  - dashboard
+  - business intelligence
+  - bi
+  - star schema
+  - data modeling
+  - time intelligence
+  - what-if analysis
+  - return rate analysis
+  - sales analytics
+  - kpi tracking
+  - reporting
+  - business analytics
+  - data storytelling
+  - self-service bi
+  - trend analysis
+  - etl
+  - sql
+- title: Advanced Database Techniques
+  description: Reference library of SQL patterns covering window functions, CTEs, complex joins, query optimization, and schema design across MySQL and PostgreSQL.
+  technologies: SQL, MySQL, PostgreSQL
+  archetypes:
+  - Data Analyst
+  business_problem: A structured SQL reference covering window functions, CTEs, complex joins, query optimization, and schema design for answering analytical questions efficiently on MySQL and PostgreSQL.
+  key_metrics: 7 SQL pattern categories (window functions, joins, CTEs, optimization, schema design, aggregates, cross-database) on MySQL + PostgreSQL
+  transferable_skills:
+  - sql
+  - window functions
+  - data modeling
+  - query optimization
+  - database design
+  - data analysis
+  - relational databases
+  - schema design
+  repo_url: https://github.com/SagarMarthandan/SQL-Practice
+  keywords:
+  - sql
+  - mysql
+  - postgresql
+  - window functions
+  - ctes
+  - joins
+  - query optimization
+  - database concepts
+  - relational databases
+  - data analysis
+  - schema design
+  - aggregate functions
+  - views
+  - constraints
+  - data modeling
+  - database design
+- title: Retrieval-Augmented Generation (RAG) PDF Query System
+  description: End-to-end RAG pipeline ingesting PDFs into a FAISS vector database with LangChain and OpenAI for semantic retrieval and question answering.
+  technologies: LangChain, FAISS, OpenAI, PyPDF2, Python
+  archetypes:
+  - AI Engineer
+  - AI/LLMOps
+  business_problem: Enabling question answering over dense PDF documents with chunked embeddings into FAISS, semantic retrieval, and LLM-grounded answers under token budget control.
+  key_metrics: FAISS IndexFlatL2 sub-millisecond query latency; 1000-char chunks with 200-char overlap; text-embedding-ada-002; token budget control via TikToken
+  transferable_skills:
+  - rag
+  - llm
+  - ai
+  - python
+  - retrieval
+  - nlp
+  - machine learning
+  - semantic search
+  - vector database
+  - embeddings
+  - document parsing
+  - information retrieval
+  - question answering
+  - ai engineering
+  repo_url: https://github.com/SagarMarthandan/RAG-LLM-pdf-query
+  keywords:
+  - python
+  - langchain
+  - faiss
+  - openai
+  - pypdf2
+  - rag
+  - llm
+  - ai
+  - retrieval
+  - nlp
+  - machine learning
+  - semantic search
+  - vector database
+  - embeddings
+  - document parsing
+  - question answering
+  - retrieval-augmented generation
+- title: COMAD PCA - Robust Principal Component Analysis
+  description: Robust PCA implementation using Co-Median Absolute Deviation for outlier-resistant dimensionality reduction, benchmarked across multiple datasets.
+  technologies: Python, NumPy, Pandas, scikit-learn, Matplotlib, SciPy, Jupyter Notebook
+  archetypes:
+  - ML Engineering
+  - Data Analyst
+  business_problem: Making dimensionality reduction robust to outliers with a COMAD-based PCA that has a 50% breakdown point, benchmarked for reconstruction error and downstream classification across 7 datasets.
+  key_metrics: 50% breakdown point vs 0% for standard deviation; k ~ 1.4826 MAD scaling; benchmarked across 7 datasets; Frobenius-norm reconstruction error; KNN/SVM/RF + K-Means evaluation
+  transferable_skills:
+  - machine learning
+  - python
+  - data analysis
+  - statistical analysis
+  - feature engineering
+  - data science
+  - data visualization
+  - dimensionality reduction
+  - outlier detection
+  - classification
+  - clustering
+  - evaluation
+  repo_url: https://github.com/SagarMarthandan/PCA-using-Co-Median
+  keywords:
+  - python
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - scipy
+  - jupyter
+  - machine learning
+  - data analysis
+  - statistical analysis
+  - feature engineering
+  - data science
+  - data visualization
+  - dimensionality reduction
+  - outlier detection
+  - clustering
+  - classification
+- title: 'RACEYARD (formerly ROSYARD): Pipeline Optimization & QA Automation'
+  description: University Master Project (CAU Kiel) — QA framework with W&B and Sweeps automation for sensor tuning on an autonomous driving simulation (ROS/Gazebo). Team project; my work was the QA/automation.
+  technologies: Python, ROS, Gazebo, Weights & Biases, ruamel.yaml, matplotlib, rospy, YAML
+  archetypes:
+  - Agentic/Automation
+  - ML Engineering
+  - Data Engineering
+  business_problem: QA automation for an autonomous driving simulation with instrumented cone-detection metrics, W&B experiment tracking, and multi-process Sweeps across a 5-pipeline ROS stack.
+  key_metrics: 5 sequential ROS pipelines (Perception, SLAM, Centerline, Driving, Actuation); 14 concurrent ROS nodes under Sweeps; 5-minute hard timer; 3 W&B reports (Camera, LiDAR, SLAM)
+  transferable_skills:
+  - python
+  - automation
+  - experiment tracking
+  - hyperparameter tuning
+  - qa automation
+  - mlops
+  - data visualization
+  - simulation
+  - robotics
+  - process automation
+  repo_url: ''
+  keywords:
+  - python
+  - ros
+  - gazebo
+  - weights and biases
+  - wandb
+  - matplotlib
+  - rospy
+  - yaml
+  - hyperparameter tuning
+  - experiment tracking
+  - qa automation
+  - sweeps automation
+  - sensor parameter tuning
+  - simulation pipeline
+  - autonomous driving
+  - robotics
+  - mlops
+  - data visualization
+- title: OKF-CV Resume & Cover Letter Tailoring Pipeline
+  description: ATS-optimized resume and cover letter pipeline with URL scraping, hybrid search (OKF phrase matching + Zvec semantic embeddings), YAML configs, LaTeX compilation, parse-integrity audits, self-learning keyword enrichment, and a Streamlit web GUI with OpenCode Go LLM streaming.
+  technologies: Python, LaTeX, PyYAML, ReportLab, Zvec, Sentence-Transformers, pypdf, Jina Reader, Streamlit, OpenAI
+  archetypes:
+  - Agentic/Automation
+  - Backend/Platform Engineering
+  business_problem: Automating ATS-optimized application materials with hybrid portfolio search against the JD, tailored resume and cover letter PDF generation, parse-integrity audits, and a Streamlit web GUI.
+  key_metrics: Hybrid score fusion 0.6/0.4 (OKF + Zvec, 384-dim all-MiniLM-L6-v2); 50+ synonym map, 0.85 fuzzy threshold; embedding daemon eliminates ~70s CPU cold start (3 invocations/run); 10+ parallel agents via cross-process locking
+  transferable_skills:
+  - python
+  - automation
+  - ai agents
+  - llm
+  - rag
+  - data pipeline
+  - semantic search
+  - nlp
+  - pdf generation
+  - application development
+  - web gui
+  - api integration
+  - self-learning
+  repo_url: https://github.com/SagarMarthandan/okf-cv
+  keywords:
+  - python
+  - latex
+  - pyyaml
+  - reportlab
+  - zvec
+  - sentence-transformers
+  - pypdf
+  - jina reader
+  - hybrid search
+  - semantic embeddings
+  - okf phrase matching
+  - score fusion
+  - automation
+  - ai agents
+  - llm
+  - rag
+  - semantic search
+  - nlp
+  - data pipeline
+  - ats optimization
+  - obsidian sync
+  - self-learning
+  - embedding daemon
+  - parse-integrity audit
+  - streamlit
+  - web gui
+  - openai api
+  - llm streaming
+  - interactive terminal
+  - drag-and-drop
+  - custom instructions
+  - decision terminal

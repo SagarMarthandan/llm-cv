@@ -1,167 +1,132 @@
 # Changelog
 
+## v2.0.0 — 2026-09-03
+
+### Added
+
+- **Bash-orchestrated wrapper (`run_pipeline.sh` v3):** Complete rewrite from session-splitting to bash-orchestrated architecture. The wrapper launches 3 isolated OMP sessions via bash, handles all compilation (pdflatex, stamp_photo, parseability, watermark), fix loops, and Obsidian sync between sessions. No subagent spawning — flash-model safe. ~920 lines.
+- **Non-interactive CLI flags:** `--render`, `--style`, `--source`, `--language`, `--weak-tie`, `--stuffing`, `--score-boost` flags let the wrapper run without `select` prompts or TTY input. The agent asks 4 questions via `ask`, passes all answers as flags, and does a single `bash` call. Eliminates the 1.4M-token parent-session overhead from `hub`-based menu feeding.
+- **Condensed catalog (`okf/project_catalog_condensed.yaml`):** Same 15 projects as the full catalog but without the `bullets` field (21KB vs 49KB). Step 1 reads this for project ranking, saving ~28KB of context per Step 1 session.
+- **`extract_projects.py`:** Three-mode utility: (1) `--condensed` generates the condensed catalog, (2) `--from-project-info` extracts full bullet data for only the 6 ranked projects from `project_info.md` into `selected_projects.yaml` (~7KB), (3) `--titles` extracts by explicit title list. Step 2 reads the 7KB `selected_projects.yaml` instead of the 49KB full catalog.
+- **SKILL.md Trigger Action section:** New mandatory section at the top of SKILL.md. Instructs the agent to launch `run_pipeline.sh` via bash when the user says "llm-cv" with a JD, instead of handling pipeline steps itself. Explicitly forbids reading step docs, asking First Action questions, compiling PDFs, or monitoring via `hub`.
+- **Score-Boost `--score-boost auto` flag:** `auto` applies score-boosting automatically when ATS score < 85 (default). `yes`/`no` force the decision. Eliminates the interactive `select` prompt.
+
+### Fixed
+
+- **`run_session_bg` stdout pollution:** `log()` inside `run_session_bg` echoed to stdout, mixing with `echo $!` in `$(...)` PID capture, producing garbage PIDs. Fix: redirect `log()` to `>&2`.
+- **`$(...)` subshell orphans background process:** `PID=$(run_session_bg ...)` runs the function in a subshell. The backgrounded `timeout` is a child of the subshell, not the main shell. When the subshell exits, the process is reparented to init, so `wait $PID` fails with "pid is not a child of this shell". Fix: use global `_BG_PID=$!` variable set inside the function after `&` backgrounding. Call sites updated to `run_session_bg ...; VAR=$_BG_PID`.
+- **`find` breaks on paths with spaces:** `for f in $(find ...)` splits "Company — Role" into separate words. `cut -d' ' -f2` only captures the first word. Fix: use `while IFS= read -r` with process substitution `< <(find ...)` and `cut -d' ' -f2-` to capture the full path.
+- **`ls` pipefail exit 2:** The final `ls -la "$APP_DIR"/*.pdf ...` pipeline caused exit 2 under `set -euo pipefail` when a glob didn't match (e.g. no `.md` files). Fix: `set +e` around the `ls | awk` pipeline with `|| true`.
+- **Photo path resolution (bug):** `get_photo_path()` in `renderers/resume_common.py` checked `os.path.exists("okf/SAGAR_MARTHANDAN_foto.jpg")` from the application folder cwd, but the photo lives at `/home/sagar/Skills/llm-cv/okf/SAGAR_MARTHANDAN_foto.jpg`. Relative photo paths in YAML are now resolved against `SKILL_DIR` from `config.py`, not cwd. Fix verified: deviceNow resume re-stamped successfully (988x988 image in PDF, parseability still passes).
+
+### Changed
+
+- **SKILL.md restructured:** Trigger Action section added at top (agent is a launcher, not a worker). Bash-Orchestrated Architecture section marked as DEFAULT. Single-session mode demoted to "Manual Debugging Only" with explicit 30x token cost warning. First Action section marked as wrapper-handled reference. Token estimate updated to ~2M/$0.04 (was ~400K/$0.005 — the old estimate was inaccurate).
+- **Step docs updated:** `01_ats_and_jd_archival.md` — "Subagent pattern" replaced with "Wrapper mode: agent reads condensed catalog directly". `02_resume_and_visual_audit.md` — compilation sections marked as bash-handled. `03_cover_letter.md` — parallel session note added.
+- **Prompt templates updated:** `prompts/step1.md`, `step2.md`, `step3.md` reference wrapper's prompt structure.
+- **Token consumption corrected:** Old docs claimed ~400K tokens/run. Measured on deviceNow run: 3.4M tokens (wrapper v1 with `hub`-fed menus). Projected for wrapper v2 with CLI flags: ~2M tokens. The ~400K estimate was the child sessions only, excluding parent overhead.
+
+### Files Modified
+
+- `run_pipeline.sh` — complete rewrite to v3 bash-orchestrated architecture (~920 lines). Added 7 CLI flags, `run_session`/`run_session_bg` helpers, `compile_resume`/`compile_cover_letter`/`compile_step1_pdfs`/`generate_layout_audit` functions, fix loop, all bug fixes.
+- `extract_projects.py` — new file (122 lines). Three modes: `--condensed`, `--from-project-info`, `--titles`.
+- `okf/project_catalog_condensed.yaml` — new file (21KB, 15 projects without bullets).
+- `SKILL.md` — Trigger Action section, Bash-Orchestrated Architecture (DEFAULT), single-session demoted, First Action wrapper note, token estimates updated.
+- `00_jd_fetch.md` — wrapper mode note.
+- `01_ats_and_jd_archival.md` — subagent pattern replaced with wrapper mode.
+- `02_resume_and_visual_audit.md` — compilation sections marked bash-handled.
+- `03_cover_letter.md` — parallel session note.
+- `prompts/step1.md`, `prompts/step2.md`, `prompts/step3.md` — wrapper prompt structure references.
+- `renderers/resume_common.py` — `get_photo_path()` fix: relative paths resolved against `SKILL_DIR`. Added `SKILL_DIR` import from `config.py`.
+- `README.md` — complete overhaul for v2.0 architecture.
+- `docs/ARCHITECTURE.md` — complete overhaul for v2.0 architecture.
+- `docs/CHANGELOG.md` — v2.0.0 entry added.
+
+
 ## v1.7.0 — 2026-08-30
 
 ### Added
 
-- **AI watermark/provenance checker (`check_watermarks.py`):** New post-compilation script that scans generated PDFs and YAML files for AI provenance marks across three layers: (A) invisible Unicode in YAML text (zero-width chars, bidi controls, tag characters, variation selectors, space homoglyphs), (B) C2PA/Content Credentials binary markers in PDF non-stream data (JUMBF, c2pa, contentcredentials — stream-stripped to avoid false positives from compressed photo image data), (C) PDF metadata vendor strings (Claude, Anthropic, OpenAI, SynthID, AI generated, Content Credentials, XMP packets). Detection logic adapted from the `remove-ai-marks` skill. Exit 0 = clean, exit 1 = marks found. Supports `--dir` for folder scans and `--json` for programmatic output. Does NOT modify files — detection only.
-- **Watermark check wired into pipeline:** `check_watermarks.py` runs after every resume and cover letter compilation (Step 2 Step E, Step 3 compilation block). Added to SKILL.md Step 2 Hard Constraints, step2/step3 prompt templates, `run_pipeline.sh` inline instructions, and completion checklist (2 new items).
+- **AI watermark/provenance checker (`check_watermarks.py`):** Post-compilation script scanning generated PDFs and YAML for AI provenance marks across three layers: (A) invisible Unicode in YAML text, (B) C2PA/Content Credentials binary markers in PDF non-stream data, (C) PDF metadata vendor strings. Exit 0 = clean, exit 1 = marks found. Supports `--dir` and `--json`.
+- **Watermark check wired into pipeline:** Runs after every resume and cover letter compilation.
 
 ### Fixed
 
-- **Photo stamping in ReportFallback mode (bug):** `stamp_photo.py` was being invoked in the ReportFallback compilation block of `02_resume_and_visual_audit.md`, causing photos to be overlaid on ReportFallback resumes (last affected: Redcare Pharmacy AI Solutions Engineer, 2026-08-29). The `resume.py` dispatcher already guarded this (`mode == 'latex'`), but the step doc's compilation commands called `stamp_photo.py` directly. Removed the call from the ReportFallback block; added explicit "NO photo stamping" callout and hard constraint. Redcare resume recompiled clean (0 images, 45KB vs 421KB).
+- **Photo stamping in ReportFallback mode:** `stamp_photo.py` was invoked in the ReportFallback compilation block. Removed; added explicit "NO photo stamping" hard constraint.
 
 ### Changed
 
-- **Space-Fill Directive strengthened:** `02_resume_and_visual_audit.md` §2.5 now requires "zero empty trailing lines" (was "≤1 line trailing whitespace"). New step 3 in the fill procedure: "Fill remaining 1-2 lines with prose — extend a project bullet with an additional outcome/metric, or add a 4th bullet to an existing project." Page Fill Density audit check (§3) adds "(c) zero empty trailing lines at bottom." Layout audit schema `page_fill_density` feedback updated. SKILL.md Step 2 Hard Constraints adds "Page fill — zero empty trailing lines" constraint. Step 2 prompt and `run_pipeline.sh` add step 7: "Verify page fill — zero empty trailing lines."
-- **`renderers/resume.py` dispatcher comment updated:** Photo stamping comment now explicitly states "LaTeX ONLY — ReportFallback resumes must NEVER have a photo overlaid. The `mode == 'latex'` guard is intentional and must not be removed."
-
-### Files Modified
-
-- `check_watermarks.py` — new file (AI watermark/provenance detection, 3 layers, stream-aware PDF scanning)
-- `02_resume_and_visual_audit.md` — removed `stamp_photo.py` from ReportFallback block; added "NO photo stamping" callout; strengthened §2.5 Space-Fill Directive (zero empty trailing lines, new step 3 prose-fill); updated §3 Page Fill Density check; updated layout audit schema; added Step E watermark check to LaTeX + ReportFallback compilation blocks
-- `03_cover_letter.md` — added watermark check to compilation block
-- `SKILL.md` — Key Scripts list includes `check_watermarks.py`; Step 2 Hard Constraints: added "No photo stamping in ReportFallback mode", "Page fill — zero empty trailing lines", "AI watermark check (mandatory post-compilation)"
-- `prompts/step2.md` — step 2 updated (NO photo stamping), step 7 (page fill), step 8 (watermark check)
-- `prompts/step3.md` — step 3 (watermark check)
-- `run_pipeline.sh` — Step 2 inline: item 2 (NO photo stamping), item 7 (page fill), item 8 (watermark check); Step 3 inline: item 3 (watermark check)
-- `99_completion_checklist.md` — 2 new items: resume watermark check, cover letter watermark check
-- `renderers/resume.py` — dispatcher comment updated (LaTeX-only photo guard is intentional)
-- `docs/ARCHITECTURE.md` — pipeline flow updated (watermark check step), file inventory updated (check_watermarks.py), stamp_photo.py note corrected
-- `README.md` — Photo Stamping section updated (ReportFallback: NO stamping, not "add manually"), new AI Watermark Check section, File Structure updated, Pipeline Steps table updated
+- **Space-Fill Directive strengthened:** Now requires "zero empty trailing lines" (was "<=1 line trailing whitespace").
+- **`renderers/resume.py` dispatcher comment updated:** Photo stamping guard explicitly marked as intentional.
 
 
 ## v1.6.0 — 2026-08-26
 
 ### Added
 
-- **Duplicate Application Check:** New `check_duplicate_application.py` script that searches the Obsidian vault (`~/Documents/Obsidian Vault/Job Search/Applications/`) and the Applications filesystem tree (`~/Applications/YYYY/MM/DD/`) for prior applications to the same company + role before the resume rewrite begins. Uses fuzzy matching with `SequenceMatcher` — normalizes company names (strips legal suffixes like GmbH, AG, SE & Co. KG) and role titles (strips gender markers like `(m/w/d)`, `(all genders)`). Thresholds: company ≥ 0.88, role ≥ 0.82 (lowered to 0.77 when company is near-exact). Deduplicates Obsidian + filesystem hits by normalized (company, role, date), preferring Obsidian source for ATS score data. Self-excludes the current application folder in `--app_dir` mode. Supports `--json` output for programmatic use.
-- **`run_pipeline.sh` integration:** After Step 1 completes, the wrapper runs the duplicate check against the new application folder. If duplicates are found, the user is prompted with three options: (1) Proceed — rewrite resume anyway, (2) Abort — stop pipeline, (3) Reuse prior resume — copies the most recent prior `Resume.yaml` as the Step 2 starting point.
-
-### Changed
-
-- **`SKILL.md`:** Pipeline Overview updated with Post-Step-1 Duplicate Application Check line. Wrapper script step list expanded from 5 to 7 steps (added duplicate check + Score-Boost Mode as explicit numbered steps). Key Scripts list includes `check_duplicate_application.py`.
-- **`README.md`:** Flow diagram updated with Dup Check stage. Pipeline Steps table adds Dup row. Session Splitting flow diagram includes duplicate check + user decision between Step 1 and Step 2. New "Duplicate Application Check" section with normalization details, thresholds, and standalone usage examples. File Structure updated with `check_duplicate_application.py`.
-
-### Files Modified
-
-- `check_duplicate_application.py` — new file (duplicate detection against Obsidian vault + Applications tree)
-- `run_pipeline.sh` — duplicate check section between Step 1 and Step 2 (set +e/set -e for exit code capture, user prompt with 3 options)
-- `SKILL.md` — Pipeline Overview, wrapper script step list, Key Scripts
-- `README.md` — flow diagram, Pipeline Steps table, Session Splitting flow, new Duplicate Application Check section, File Structure
+- **Duplicate Application Check (`check_duplicate_application.py`):** Searches Obsidian vault + Applications filesystem tree for prior applications to the same company + role before resume rewrite. Fuzzy-matches with `SequenceMatcher` — normalizes company names (strips legal suffixes) and role titles (strips gender markers). Three options: proceed, abort, reuse prior resume.
+- **`run_pipeline.sh` integration:** Duplicate check runs after Step 1, before Step 2.
 
 
 ## v1.5.0 — 2026-08-24
 
 ### Added
 
-- **Score-Boost Mode (conditional, user-opt-in):** When the initial ATS score from Step 1 (`ats_score_matrix.total_score` in `ATS_Report.yaml`) is below 85, `run_pipeline.sh` displays the score, lists the 4 score-boosting measures and what each changes, and asks the user whether to apply them. If the user opts in, `score_boost_mode: true` and `initial_ats_score` are injected into the Step 2 prompt. If score ≥ 85, the prompt is skipped entirely. Proven on Harman Intern Digital Corporate Data & Analytics run: initial 69 → post-rewrite 88 (+19 delta).
-- **`prompts/score_boost.md`:** New reference file inside the skill directory containing the 4 score-boost measures (student framing, exact JD phrase weaving, real adjacent skills, itemized scoring rubric). Replaces the external `promt improvements.txt` so session-split agents can reference it reliably.
-
-### Changed
-
-- **Step 2 §1 (Document Rewrite):** Score-Boost Gate check added at top of section. Measures 1-3 (student framing, JD phrase weaving, adjacent skills) integrated as conditional sub-sections at end of §1, active only when Score-Boost Gate is active.
-- **Step 2 §5 (Post-Rewrite ATS Rescoring):** Measure 4 (itemized scoring rubric) integrated as conditional rule, mandatory when Score-Boost is active. Scores each category against explicit enumerated JD term lists with matched/unmatched items and parenthetical reasons.
-- **SKILL.md Step 2 Hard Constraints:** Added compact Score-Boost Mode block noting user-opt-in activation, measure locations (§1 and §5), and anti-hallucination compliance.
-- **`run_pipeline.sh`:** Reads `ats_score_matrix.total_score` after Step 1; if < 85, presents interactive `select` prompt with score + measure descriptions + y/n choice. Injects `score_boost_mode` and `initial_ats_score` into Step 2 prompt.
-- **`prompts/step2.md`:** Reference template updated with `score_boost_mode` and `initial_ats_score` fields and Score-Boost application directive.
-
-### Files Modified
-
-- `prompts/score_boost.md` — new file (4 measures, anti-hallucination note)
-- `02_resume_and_visual_audit.md` — §1 (Score-Boost Gate + Measures 1-3 sub-section), §5 (Measure 4)
-- `SKILL.md` — Step 2 Hard Constraints (Score-Boost Mode block)
-- `run_pipeline.sh` — Score-Boost ask section + Step 2 prompt injection
-- `prompts/step2.md` — score_boost_mode/initial_ats_score fields + application directive
-- `README.md` — Score-Boost Mode section + file structure update
+- **Score-Boost Mode (conditional, user-opt-in):** When initial ATS score < 85, wrapper displays score + 4 measures and asks user whether to apply. Measures: (1) student framing, (2) exact JD phrase weaving, (3) real adjacent skills, (4) itemized scoring rubric. Proven on Harman Intern run: 69 → 88 (+19 delta).
+- **`prompts/score_boost.md`:** Reference file with 4 score-boost measures.
 
 
 ## v1.4.0 — 2026-08-21
 
 ### Changed
 
-- **Project summaries tightened to 3 lines:** Resume project entries now use exactly 3 bullets (was 3-5) targeting 180-240 chars English / 160-220 chars German (was 250-300 / 230-280). Hard 3-line render limit enforced. Each bullet carries one outcome + its key metric. Eliminates verbose multi-paragraph project descriptions that read as prose padding.
-- **Anti-stuffing tech skills principle:** New "Technical skills selection (ANTI-STUFFING)" directive in Step 2 §1. Skills block now includes only JD-relevant skills the candidate genuinely knows, prioritized as: (1) JD-required skills, (2) core tools from selected projects, (3) adjacent strengths. Irrelevant technologies omitted even if known. Prevents the exhaustive inventory pattern that signals ATS keyword stuffing.
-- **Project tools field reduced:** Per-project `tools` list in `Resume.yaml` reduced from 5-7 to 3-5 most JD-relevant tools. Tools-Line Deduplication audit (§3) updated to match. Irrelevant tools from catalog entries no longer dilute the signal.
-- **Section Rule Separation (HARD):** New hard layout constraint in Step 2 §2. `\titlespacing` after-sep must never go below 4pt (renderer default). Smaller gaps make the `\titlerule` visually merge with the first content line under every section header. Overflow fixes must trim content or enlarge `\vspace` budgets, never reduce after-sep.
-- **Space-fill directive updated:** Character budgets in §2.5 now reference the tighter 180-240/160-220 ranges. Add-one-more-project and LaTeX polish sections updated to match.
-- **SKILL.md Step 2 hard constraints (bugfix):** Step 2 constraints (3 bullets, 180-240 chars, anti-stuffing, section rule separation) were only in `02_resume_and_visual_audit.md`, which session-split agents routinely skip reading when the `run_pipeline.sh` prompt provides inline execution steps. Added a "Step 2 Hard Constraints" block directly to SKILL.md's Step 2 section so the rules are always in context via `--skills llm-cv` auto-injection. Root cause of 6 pipeline runs ignoring the v1.4.0 changes.
-- **Pipeline Summary Output (MANDATORY):** New "Pipeline Summary Output" section in SKILL.md. After every pipeline run, step completion, or ad-hoc resume change, the agent must print a summary box (Company Name, Folder Location, Delta, Resume OK/BAD, Status) as the final output. Values read from disk files, not guessed. Placed in SKILL.md (not a separate file) so it's always in context via auto-injection.
-
-### Files Modified
-
-- `SKILL.md` — Step 2 section: added hard constraints block; new Pipeline Summary Output section (mandatory terminal summary box); Self-Refresh section preserved
-- `02_resume_and_visual_audit.md` — §1 (anti-stuffing + project tools), §2 (layout table, project instructions, section rule separation), §2.5 (space-fill budgets), §3 (tools-line count), §4 (LaTeX polish length), Optional (add project), §B (YAML schema comments)
-- `llm-cv-token-optimization-plan.md` — planning doc table updated for consistency
+- **Project summaries tightened to 3 lines:** Exactly 3 bullets per project (was 3-5), 180-240 chars EN / 160-220 DE, hard 3-line render limit.
+- **Anti-stuffing tech skills:** Skills block includes only JD-relevant skills, prioritized as JD-required → core project tools → adjacent strengths.
+- **Project tools field reduced:** 3-5 most JD-relevant tools per project (was 5-7).
+- **Section rule separation (hard):** `\titlespacing` after-sep must never go below 4pt.
+- **SKILL.md Step 2 hard constraints:** Added compact constraints block directly to SKILL.md (root cause of 6 runs ignoring v1.4.0 changes — step docs not reliably read by session-split agents).
+- **Pipeline Summary Output (mandatory):** Agent must print summary box after every run.
 
 
 ## v1.3.0 — 2026-08-19
 
 ### Added
 
-- **Session splitting (`run_pipeline.sh`):** Wrapper script that runs each pipeline step as a separate OMP session with clean context, chaining via disk files. Reduces token consumption by 84% (~400K tokens/run vs ~2.5M single-session). Collects First Action answers and keyword stuffing decision outside the agent, passes them via prompt. Each session starts with `omp -p --auto-approve` and a step-specific prompt.
-- **Prompt templates (`prompts/`):** Reference documentation for the 3 session prompts used by `run_pipeline.sh` (`step1.md`, `step2.md`, `step3.md`). Each documents the prompt structure, what the session reads/writes, and token budget.
-- **Completion checklist extraction (`99_completion_checklist.md`):** Moved the 30+ item completion checklist out of `SKILL.md` into a separate file read only at pipeline end. Saves ~2,500 base tokens across 25+ API calls where it's not needed.
-- **Lazy loading directives:** Each step doc ends with `**Next:** Proceed to Step N — read N_*.md`, chaining steps without loading all docs at once. `SKILL.md` instructs: "Read only the step doc for the step you're executing."
-- **First Action persistence in `ATS_Report.yaml`:** `render_mode`, `resume_style`, and `language` are now written as top-level keys in `ATS_Report.yaml` by Step 1, so Step 2 and Step 3 sessions can read them from disk. Enables manual re-runs of individual steps without the wrapper script.
+- **Session splitting (`run_pipeline.sh` v1):** Wrapper script running each pipeline step as a separate OMP session with clean context. First version of token optimization.
+- **Prompt templates (`prompts/`):** Reference docs for session prompts.
+- **Completion checklist extraction (`99_completion_checklist.md`):** Moved out of SKILL.md, read only at pipeline end.
+- **Lazy loading directives:** Step docs chain via "Next: Proceed to Step N" directives.
+- **First Action persistence in `ATS_Report.yaml`:** `render_mode`, `resume_style`, `language` written as top-level keys for cross-session reading.
 
 ### Changed
 
-- **SKILL.md slimmed 49%** (32,121 → 16,381 bytes): Condensed First Action questions to 4-row table, anti-hallucination principles to tight bullets, pipeline overview to 4-line summary, read-only guardrail to compact list, execution step descriptions condensed, post-pipeline/error handling/self-refresh sections condensed.
-- **Step docs slimmed 50-62%:**
-  - `00_jd_fetch.md`: 9,466 → 4,159 bytes (56%) — condensed validation heuristic, strategy routing, removed "What this step does NOT do" section.
-  - `01_ats_and_jd_archival.md`: 23,591 → 10,113 bytes (57%) — condensed ATS scoring matrix, improvement blueprint, placement weighting, vendor inference. YAML schemas preserved verbatim.
-  - `02_resume_and_visual_audit.md`: 42,792 → 16,342 bytes (62%) — removed LaTeX example code blocks, condensed space-fill directive to numbered list, converted layout constraints to table, consolidated compilation commands into single code blocks.
-  - `03_cover_letter.md`: 9,936 → 4,984 bytes (50%) — condensed narrative rules to bullets, consolidated compilation + sync commands.
-- **De-duplicated guardrails:** Repeated guardrail blocks (READ-ONLY, AGENT EXECUTION, YAML SAFETY, ANTI-HALLUCINATION, Stop-Slop) in all 4 step docs replaced with 1-line `> **Rules:** Follow SKILL.md §"..."` references. Each step doc keeps only its writable-files list.
-- **Step 2 inputs:** Now explicitly reads `render_mode`, `resume_style`, `language`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, `closest_candidate_location` from `ATS_Report.yaml` (was implicit before).
-- **Step 3 inputs:** Now explicitly reads `render_mode`, `language`, `closest_candidate_location`, `application_source`, `weak_tie_contact`, `role_archetype` from `ATS_Report.yaml`.
+- **SKILL.md slimmed 49%** (32KB → 16KB).
+- **Step docs slimmed 50-62%** (total 118KB → 52KB).
+- **De-duplicated guardrails:** Repeated blocks in step docs replaced with 1-line references to SKILL.md.
 
-### Token Optimization Summary
-
-| Mode | Per run | 4 runs | Quota (60M) | Resumes/month |
-|:---|:---|:---|:---|:---|
-| Original (v1.2.0) | ~2.5M | ~10M | 16.7% | ~24 |
-| Single-session (doc slimming) | ~2.0M | ~8M | 13.3% | ~30 |
-| Session-split (all optimizations) | ~400K | ~1.6M | 2.7% | ~149 |
-
-### Fixed
-
-- **Missing YAML Safety Rules section:** Added `## YAML Safety Rules (Non-Negotiable)` section to `SKILL.md` — step docs referenced it but it didn't exist.
-- **Missing Read-Only Guardrail header:** Added `## Read-Only Guardrail (Non-Negotiable)` section header to `SKILL.md` to match step doc references.
-- **Renamed Agent Execution section:** `## Agent Execution & Anti-Spinning Rules (Mandatory)` → `## Agent Execution Rules (Mandatory)` to match step doc references.
 
 ## v1.2.0 — 2026-08-18
 
 ### Added
 
-- **Unified technical skills across all 6 base resumes:** Every base resume (5 English archetypes + 1 German) now carries the same 72-skill set across 7 categories (Programming & Query Languages, Data Engineering & Transformation, Cloud/Warehousing & Platforms, BI & Visualization, AI & ML, Data Quality/Governance & CI/CD, Streaming & Distributed Systems). Each archetype reorders the categories to lead with its strongest domain. Eliminates archetype-siloed blind spots where e.g. the Data Engineer base lacked Power BI/DAX/scikit-learn that the candidate actually knows — no LLM model sees candidate skills as "gaps" regardless of which archetype is matched.
-- **4-question First Action:** Pipeline startup prompt expanded from 2 to 4 questions in a single `ask` call: render mode, resume style, application source (`Cold Apply`/`Referral`/`LinkedIn Connection`/`Direct`), and output language (`English`/`German`). Application source and language are read downstream without re-prompting. `weak_tie_contact` is collected during First Action when source is `Referral` or `LinkedIn Connection`.
-- **Keyword stuffing decision (Step 2):** New First Action at Step 2 start presents the `skill_gaps` list from Step 1 and asks the user to choose: `Add all` (add every gap skill), `No stuffing` (standard anti-hallucination guardrail), or `Selective` (user specifies which skills). Stored as `keyword_stuffing` (bool) and `user_directed_skills` (list) in `Resume.yaml` for audit trail.
-- **Anti-hallucination carve-out (§3):** SKILL.md §3 now explicitly waives the skill-addition restriction when the user directs specific skill additions via the Step 2 keyword stuffing prompt. The model executes a user directive, not fabrication. The guardrail remains fully enforced for projects, metrics, employment history, repo URLs, and company facts.
-- **Language override:** User's First Action language selection overrides JD auto-detection. Useful for international roles at German companies where the JD is in German but English output is preferred.
+- **Unified technical skills across all 6 base resumes:** Same 72-skill set across 7 categories, reordered per archetype.
+- **4-question First Action:** Render mode, resume style, application source, language.
+- **Keyword stuffing decision (Step 2):** User chooses Add all / No stuffing / Selective.
+- **Anti-hallucination carve-out:** User-directed skill additions are not fabrication.
+- **Language override:** User's First Action language selection overrides JD auto-detection.
 
-### Changed
-
-- **Step 1 (`01_ats_and_jd_archival.md`):** `application_source` changed from a Step 1 prompt to reading the pre-selected value from First Action. Base resume loading now uses the user's language selection instead of JD auto-detection. `target_language_confirmation` updated to reference First Action choice.
-- **Step 2 (`02_resume_and_visual_audit.md`):** Skill gap closure rewritten as 3 branches (Add all / Selective / No stuffing) keyed to the `keyword_stuffing` decision. Space-fill directive updated with the carve-out for `keyword_stuffing: true`. `Resume.yaml` schema adds `keyword_stuffing` and `user_directed_skills` top-level keys. Match Language section references user's First Action choice.
-- **Completion checklist:** Added checks for `application_source`, `keyword_stuffing`, and `user_directed_skills` fields.
 
 ## v1.1.0 — 2026-08-18
 
 ### Added
 
-- **Photo stamping (LaTeX mode):** Candidate headshot (`okf/SAGAR_MARTHANDAN_foto.jpg`) is automatically stamped onto the top-right corner of page 1 as a post-processing step after PDF compilation. Photo aligns with the name text at the top and sits just above the first section separator line (1.40in, 0.25in top margin). Stamping uses ReportLab overlay + pypdf merge — no renderer header modifications needed.
-  - `CANDIDATE_PHOTO` config constant (env-overridable via `LLM_CV_CANDIDATE_PHOTO`)
-  - `get_photo_path()` helper resolves from `contact_info.photo` YAML key → config default → None
-  - `stamp_photo_on_pdf()` creates a transparent ReportLab overlay and merges it onto the PDF via pypdf
-  - Disable per-application: `contact_info.photo: null` in `Resume.yaml`
-  - ReportFallback mode: no stamping (add photo manually via PDF editor if needed)
+- **Photo stamping (LaTeX mode):** Candidate headshot stamped onto top-right corner of page 1. `get_photo_path()` resolves from `contact_info.photo` → config default → None. `stamp_photo_on_pdf()` creates ReportLab overlay + pypdf merge.
 
 ### Fixed
 
-- **LaTeX education line wrapping:** Long degree+university combinations (e.g. "M.Sc. Quantitative Wirtschaftswissenschaften" + "Christian-Albrechts-Universität zu Kiel, Deutschland") now stay on one line. All education entries use a uniform font size determined by the longest entry, wrapped in `\mbox{}` to prevent breaking. Short entries remain at standard size; long entries shrink to `\small`/`\footnotesize` with all entries matching.
+- **LaTeX education line wrapping:** Long degree+university combinations wrapped in `\mbox{}` with uniform font size.
+
 
 ## v1.0.0 — 2026-08-08
 
-Migrated from algorithmic search (OKF phrase matching + Zvec semantic embeddings) to LLM-based project ranking. The agent now reads a condensed `project_catalog.yaml` (16 projects, 8-10 bullets each) and ranks the top 6 for the JD using LLM judgment. Removed 7 Python scripts, 16 portfolio `.md` files, vector database, embedding server, synonyms/noise/phrase pattern data, self-learning loop, and `zvec`/`sentence-transformers` dependencies. Kept all renderers, base resumes, PDF compilation, parse-integrity audit, and Obsidian sync unchanged. Dependencies reduced to `pyyaml`, `reportlab`, `pypdf`.
+Migrated from algorithmic search (OKF phrase matching + Zvec semantic embeddings) to LLM-based project ranking. Removed 7 Python scripts, 16 portfolio `.md` files, vector database, embedding server, synonyms/noise/phrase pattern data, self-learning loop, and `zvec`/`sentence-transformers` dependencies. Dependencies reduced to `pyyaml`, `reportlab`, `pypdf`.

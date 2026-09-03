@@ -5,6 +5,8 @@
 ## Objective
 Generate a formal cover letter (`Cover_Letter.yaml`) grounded in project metrics, conforming to German Geschäftsbrief layout, and compile to PDF.
 
+> **Wrapper mode:** Session 3 runs as a separate OMP session launched by bash, in parallel with Session 2 (resume writer). The agent reads `ATS_Report.yaml`, `Job_Description.yaml`, and `project_info.md` from disk and writes `Cover_Letter.yaml`. No subagent spawning — bash handles the parallelism.
+
 ## Inputs
 - `ATS_Report.yaml` from company folder — read `render_mode`, `language`, `closest_candidate_location`, `application_source`, `weak_tie_contact`, `role_archetype` from here
 - `Job_Description.yaml` from company folder (Step 1 output)
@@ -56,7 +58,10 @@ closing: "Mit freundlichen Grüßen, / Sincerely,"
 signature_image: "okf/SAGAR_MARTHANDAN_signature.png"  # optional — path to signature PNG (transparent bg). Omit/leave empty to use typed name only.
 ```
 
-## Compilation
+## Compilation (reference only — handled by bash in wrapper mode)
+
+> In wrapper mode, `run_pipeline.sh` handles compilation and Obsidian sync after the session ends. Agents write YAML only. The commands below are for single-session mode or manual debugging.
+
 ```bash
 cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 
@@ -68,10 +73,10 @@ cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 
 # AI watermark check (mandatory)
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/check_watermarks.py" "Cover_Letter.yaml" "SAGAR_MARTHANDAN_Cover_Letter.pdf"
-# German: substitute "SAGAR_MARTHANDAN_Anschreiben.pdf"
+```
 Renderer reads `render_mode` — `latex` (default) or `reportfallback`. Both produce same Geschäftsbrief layout.
 
-## Post-Pipeline: Obsidian Sync
+## Post-Pipeline: Obsidian Sync (handled by bash in wrapper mode)
 ```bash
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/sync_to_obsidian.py" "/home/sagar/Applications/[Company Name] — [Job Role]" --sort
 ```

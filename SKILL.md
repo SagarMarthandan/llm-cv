@@ -5,6 +5,49 @@ description: >-
 dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 ---
 
+## Trigger Action (MANDATORY — read first)
+
+When the user says "llm-cv" with a JD (pasted text, `--url`, or `--file`), do exactly TWO things:
+
+### Step 1: Ask First Action questions via `ask`
+
+Ask the user **four** questions in a single `ask` call (same batch). These configure the entire run:
+
+| # | Setting | Header | Options |
+|---|---------|--------|---------|
+| 1 | Render mode | "Render mode" | `LaTeX` — pdflatex (primary) / `ReportFallback` — ReportLab (when pdflatex unavailable) |
+| 2 | Resume style | "Resume style" | `US Style` — Summary→Skills→Projects→Experience→Education→Languages / `German Style` — Summary→Experience→Education→Skills→Languages (projects folded into experience) |
+| 3 | Application source | "Application source" | `Cold Apply` / `Referral` (prompt for contact) / `LinkedIn Connection` (prompt for contact) / `Direct` |
+| 4 | Language | "Language" | `English` (loads okf/base_files/english/) / `German` (loads okf/base_files/german/) |
+
+If `Referral` or `LinkedIn Connection`, also ask for contact name/role.
+
+### Step 2: Launch `run_pipeline.sh` with all flags via bash
+
+Pass all selections as CLI flags so the wrapper runs NON-INTERACTIVELY (no `select` prompts, no `hub` needed). Use `--stuffing none` and `--score-boost auto` as safe defaults:
+
+```bash
+cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh --url "https://..." \
+    --render latex --style german --source "Cold Apply" --language English \
+    --stuffing none --score-boost auto
+```
+
+**Flag reference:**
+- `--url "..."` / `--file path` / `"pasted JD text"` — JD source
+- `--render latex|reportfallback` — render mode
+- `--style us|german` — resume style
+- `--source "Cold Apply"|"Referral"|"LinkedIn Connection"|"Direct"` — application source
+- `--language English|German` — language
+- `--weak-tie "contact name/role"` — required if source is Referral or LinkedIn Connection
+- `--stuffing none|all|selective` — keyword stuffing (default: none)
+- `--score-boost auto|yes|no` — auto applies when ATS score < 85 (default: auto)
+
+The wrapper runs to completion: 3 OMP sessions, compilation, fix loops, Obsidian sync. It prints the summary block at the end. Do NOT intercept, monitor via `hub`, or replicate its logic. Just launch it via `bash` and wait for the output.
+
+**Why this matters:** A single-session run consumes ~8M tokens ($0.13). The wrapper uses 3 isolated sessions + bash compilation = ~1M tokens ($0.03). The agent running steps itself is the failure mode — the wrapper exists to prevent it.
+
+**Exception — "llm-cv refresh":** When the user says "llm-cv refresh" (no JD), do NOT launch the wrapper. Follow the Self-Refresh section at the bottom of this file.
+
 # LLM-CV Pipeline
 
 ## Read-Only Guardrail (Non-Negotiable)
@@ -24,17 +67,18 @@ dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 
 ## Pipeline Overview
 
-Step 1: ATS analysis + JD archival + LLM project ranking → `ATS_Report.yaml`, `Job_Description.pdf`, `project_info.md`
-Step 2: Resume rewrite + layout audit + parseability audit → `Resume.pdf`, `Layout_Audit_Report.yaml`, `Parseability_Report.pdf`
+Step 1: ATS analysis + JD archival + project ranking (reads condensed catalog) → `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md`
+[bash] Compile Step 1 PDFs + extract selected projects → `selected_projects.yaml`
+Session 2: Resume writer + ATS rescoring (reads `selected_projects.yaml`) → `Resume.yaml`
+Session 3: Cover letter writer (parallel with Session 2) → `Cover_Letter.yaml`
+[bash] Compile all PDFs + fix loop + obsidian sync
 Post-Step-1: Duplicate Application Check (wrapper mode) → searches Obsidian vault + Applications tree for prior applications to same company + role; prompts user to proceed, abort, or reuse prior resume
-Step 3: Cover letter → `Cover_Letter.pdf`
 Post: Obsidian sync + sort → moves folder to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
 
 - **Base Files:** `okf/base_files/english/` (archetype-specific: `resume_data_engineer.md`, `resume_data_analyst.md`, `resume_analytics_engineer.md`, `resume_ai_data_engineer.md`, `resume.md` fallback). German: same with `_de` suffix, `resume_de.md` fallback. Step 1 detects archetype and loads matching base.
 - **Project Catalog:** `okf/project_catalog.yaml` — 15 projects with title, description, business_problem, key_metrics, transferable_skills, technologies, archetypes, repo_url, bullets, keywords. Single source of truth. `key_metrics` is authoritative — cite verbatim, never invent.
 - **Python:** `/home/sagar/Skills/llm-cv/.venv/bin/python` — use this exact path verbatim. Dependencies: `pyyaml`, `reportlab`, `pypdf`. Do NOT run `pip install`.
-- **Working Directory:** `/home/sagar/Applications/` (absolute path — never relative to agent CWD).
-- **Key Scripts:** `yaml_to_pdf.py` (entry point), `resume_parseability.py` (ATS parse audit, auto-recovers via ReportFallback), `check_watermarks.py` (AI watermark/provenance check — run after every PDF compilation), `sync_to_obsidian.py` (Obsidian sync), `organize_applications.py` (date tree sort), `check_duplicate_application.py` (duplicate application detection against Obsidian vault + Applications tree). Renderers in `renderers/` dispatch by `render_mode` + `resume_style`.
+- **Condensed Catalog:** `okf/project_catalog_condensed.yaml` — same 15 projects without `bullets` field (~21KB vs 49KB). Read directly by Step 1 agent for project ranking. Generated by `extract_projects.py --condensed`.
 
 ## General Writing & Style Rules (Stop-Slop)
 
@@ -75,6 +119,8 @@ The user must provide:
 1. **Job Description** — paste the full JD text (or a URL — see Step 0 for URL fetching)
 
 ## First Action: Select Pipeline Options
+
+> **Wrapper mode:** `run_pipeline.sh` handles First Action prompts via interactive `select` menus. The agent does NOT ask these questions — the wrapper does. The section below documents the options for reference and for single-session debugging.
 
 Ask the user **four** questions in a single `ask` call (all four as separate questions in the same batch). These selections configure the entire pipeline run:
 
@@ -120,35 +166,26 @@ In agentic IDEs (Devin, Claude Code, Oh My Pi, etc.), emitting lengthy planning 
 
 These rules apply to ALL pipeline steps (0, 1, 2, 3) and all post-pipeline actions.
 
-## Session Splitting (Token-Efficient Mode — Recommended)
+## Bash-Orchestrated Architecture (DEFAULT — always use the wrapper)
 
-For maximum token efficiency (~490K tokens/run vs ~2.5M single-session), run each step as a separate OMP session with clean context. Steps chain via disk files (YAML outputs).
+The pipeline runs via `run_pipeline.sh` — 3 simple OMP sessions launched by bash. No subagent spawning. Each session gets a focused prompt: "read these files, write this YAML, done." Bash handles all parallelism, compilation, and coordination. This is the DEFAULT and ONLY mode for pipeline runs.
 
-**Wrapper script:** `run_pipeline.sh` in the skill directory orchestrates all 3 sessions:
+Architecture:
+1. Agent asks First Action questions via `ask`, passes all answers as CLI flags
+2. **Session 1** (`omp -p --auto-approve`) → ATS analysis + JD archival + project ranking. Agent reads condensed catalog (21KB) directly and writes project_info.md. Does NOT compile PDFs.
+3. **[bash]** Compiles ATS_Report.pdf + Job_Description.pdf. Runs `extract_projects.py` → `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB).
+4. **Duplicate Application Check** — `check_duplicate_application.py` against Obsidian vault + Applications tree
+5. Keyword stuffing + score-boost decisions applied from CLI flags (no interactive prompts)
+6. **Session 2** (`omp -p --auto-approve`) → Resume writer. Reads `selected_projects.yaml` (~7KB) instead of 49KB catalog. Writes Resume.yaml + updates ATS_Report.yaml with post_rewrite_ats_score. Does NOT compile PDFs.
+7. **Session 3** (`omp -p --auto-approve`, parallel with Session 2) → Cover letter writer. Reads project_info.md. Writes Cover_Letter.yaml. Does NOT compile PDFs.
+8. **[bash]** Waits for both sessions. Compiles resume (tex → pdflatex ×2 → stamp → parseability → watermark). Compiles cover letter. Fix loop if parseability fails (launches minimal fix session). Recompiles ATS_Report.pdf. Obsidian sync + sort.
 
-```bash
-cd /home/sagar/Skills/llm-cv
-./run_pipeline.sh                          # interactive — prompts for JD
-./run_pipeline.sh "paste JD text here"     # pass JD text directly
-./run_pipeline.sh --url "https://..."      # fetch JD from URL (triggers Step 0)
-./run_pipeline.sh --file jd.txt            # read JD from file
-```
+Key design: bash launches Sessions 2 and 3 in parallel using `&` and `wait`. No LLM subagent spawning required — flash-model safe. Token savings come from separate sessions (clean context) + bash compilation (0 tokens) + condensed catalog (21KB vs 49KB). The parent agent does ONE `ask` + ONE `bash` call = ~4 API calls total.
 
-The script:
-1. Collects First Action answers (render mode, style, source, language)
-2. Launches Step 1 session (`omp -p --auto-approve`) → writes ATS_Report.yaml, Job_Description.yaml, project_info.md
-3. **Duplicate Application Check** — runs `check_duplicate_application.py` against the Obsidian vault and Applications tree; if a prior application to the same company + role is found, prompts the user to proceed, abort, or reuse the prior resume as a starting point
-4. Reads `skill_gaps` from ATS_Report.yaml, collects keyword stuffing decision
-5. Reads initial ATS score, asks about Score-Boost Mode (if < 85)
-6. Launches Step 2 session → writes Resume.yaml, compiles resume, runs audits
-7. Launches Step 3 session → writes Cover_Letter.yaml, compiles, runs Obsidian sync
-
-Each session starts with a clean context — no accumulation from previous steps. The YAML schemas are the contract between steps. Prompt templates documented in `prompts/step1.md`, `prompts/step2.md`, `prompts/step3.md`.
-
-**Single-session mode** (below) is still available for interactive use where the agent handles all steps in one conversation.
+**Single-session mode** (below) is for MANUAL DEBUGGING ONLY — when you need to inspect a specific step's output interactively. Do NOT use it for normal pipeline runs. It consumes ~30x more tokens than the wrapper.
 
 
-## Execution — Run All 3 Steps Sequentially
+## Single-Session Mode (Manual Debugging Only)
 > **Lazy Loading:** Read only the step doc for the step you're executing. Do NOT read all step docs at once — each step doc is read on-demand when that step begins. This saves context tokens.
 
 
@@ -162,17 +199,23 @@ Run **only** when user provides a URL. Read `00_jd_fetch.md`. Fetches rendered p
 
 ### STEP 1: Setup, ATS Analysis & Job Description Archival
 
-Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories × 25pts = 100; formatting is non-scored `formatting_quality` verdict), finds closest candidate city, ranks top 6 projects from `okf/project_catalog.yaml`. Score is informational — never blocks: `PROCEED` if ≥85, else `REVIEW` (Step 2 always proceeds).
+Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories × 25pts = 100; formatting is non-scored `formatting_quality` verdict), finds closest candidate city, ranks top 6 projects. Score is informational — never blocks: `PROCEED` if ≥85, else `REVIEW` (Step 2 always proceeds).
 
-**Output:** `ATS_Report.yaml`, `ATS_Report.pdf`, `Job_Description.yaml`, `Job_Description.pdf`, `project_info.md` in `[Company Name] — [Job Role]/` folder.
+**Wrapper mode:** Agent reads `okf/project_catalog_condensed.yaml` (21KB, no bullets) directly for project ranking. No subagent spawning — the agent writes ATS_Report.yaml, Job_Description.yaml, and project_info.md itself.
+
+**Compilation:** In wrapper mode, `run_pipeline.sh` compiles `ATS_Report.pdf` and `Job_Description.pdf` after the session ends. Agents do NOT compile PDFs.
+
+**Output:** `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md` in `[Company Name] — [Job Role]/` folder. PDFs compiled by bash.
 
 **Naming:** Folder MUST be `[Company Name] — [Job Role]` from JD. No arbitrary names.
 
----
-
 ### STEP 2: Resume Rewrite & Visual Layout Audit
 
-Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from ATS blueprint + project list. Compiles via LaTeX, layout audit, Stop-Slop check, post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
+Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from ATS blueprint + project list. Post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
+
+**Wrapper mode:** Session 2 is a dedicated OMP session launched by bash. The agent reads `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB) instead of the 49KB catalog. The agent writes `Resume.yaml` and updates `ATS_Report.yaml` with `post_rewrite_ats_score` — no compilation.
+
+**Compilation:** In wrapper mode, `run_pipeline.sh` compiles the resume (tex → pdflatex ×2 → stamp_photo → parseability → watermark) after the session ends. If parseability fails, bash launches a minimal fix session with just the error + Resume.yaml. Cover letter runs in a separate parallel session (Session 3), also compiled by bash.
 
 **Step 2 Hard Constraints (NON-NEGOTIABLE — enforce even if step doc not fully read):**
 - **Project summaries:** Exactly 3 bullets per project, 180-240 chars EN / 160-220 DE, hard 3-line render limit. One outcome + metric per bullet. No padding, no tech-listing.
@@ -184,7 +227,7 @@ Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from
 - **Page fill — zero empty trailing lines:** Resume must fill exactly one A4 page with content reaching the bottom margin. No empty lines at the end. If 1-2 lines remain empty, fill them with project prose (extra bullet/outcome) or additional technical skills. Half-empty page = FAIL. See `02_resume_and_visual_audit.md` §2.5 Space-Fill Directive.
 - **AI watermark check (mandatory post-compilation):** After compiling the resume PDF, run `check_watermarks.py` on the YAML and PDF. Exit 0 = clean, exit 1 = marks found. If flagged, investigate before proceeding — do NOT submit a resume with AI provenance marks. See `02_resume_and_visual_audit.md` Step E.
 
-**Output:** `Resume.yaml`, `Layout_Audit_Report.yaml`, `SAGAR_MARTHANDAN_Resume.pdf`/`Lebenslauf.pdf`, `Parseability_Report.yaml`, `Parseability_Report.pdf`.
+**Output:** `Resume.yaml`, `Layout_Audit_Report.yaml` (generated by bash from parseability results). PDFs compiled by bash.
 
 ---
 

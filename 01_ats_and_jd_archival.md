@@ -142,8 +142,10 @@ sections:
 
 ## LLM-Based Project Ranking & Compilation
 
+> **Wrapper mode:** In wrapper mode, the agent reads `okf/project_catalog_condensed.yaml` (21KB, no bullets) directly — no subagent spawning. The agent writes `project_info.md` itself. In single-session mode, the agent reads the full catalog directly.
+
 ### Ranking
-Read `okf/project_catalog.yaml` (15 projects). Rank top 6 for this JD by: technology overlap, transferable skills, business-problem match, archetype fit, complexity/seniority, reframing potential.
+Read `okf/project_catalog_condensed.yaml` (wrapper mode) or `okf/project_catalog.yaml` (single-session mode) — 15 projects. Rank top 6 for this JD by: technology overlap, transferable skills, business-problem match, archetype fit, complexity/seniority, reframing potential.
 
 > **ANTI-HALLUCINATION — Ranking:** Select ONLY from 15 catalog projects. No inventing/splitting/merging. Every project maps 1:1 by exact `title` match. `repo_url` must be exact catalog entry — bare profile URL = hallucination red flag.
 
@@ -174,7 +176,8 @@ print('Catalog projects:', len(catalog))
 ```
 Cross-check each `# [Project Title]` heading against catalog. If mismatch → replace with next-best real catalog project. Re-run until all 6 match.
 
-### Compilation
+### Compilation (wrapper mode — handled by bash)
+In wrapper mode, `run_pipeline.sh` compiles `ATS_Report.pdf` and `Job_Description.pdf` after the session ends. Agents do NOT compile PDFs. The commands below are for single-session mode only:
 ```bash
 cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf"

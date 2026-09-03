@@ -12,7 +12,7 @@ from .utils import (
     TEXT_DARK, TEXT_MUTED, LINE_COLOR,
     escape_latex,
 )
-from config import CANDIDATE_NAME, CANDIDATE_PHOTO
+from config import CANDIDATE_NAME, CANDIDATE_PHOTO, SKILL_DIR
 
 # ── ReportLab imports (used by ReportFallback shared functions) ───────────────
 from reportlab.lib.pagesizes import A4
@@ -952,6 +952,9 @@ def get_photo_path(data):
 
     Returns the absolute path if the file exists, else None.
     Set contact_info.photo to null/false in YAML to explicitly disable.
+    Relative paths are resolved against SKILL_DIR (not cwd), since the
+    YAML stores paths like 'okf/SAGAR_MARTHANDAN_foto.jpg' relative to
+    the skill directory but stamp_photo.py may run from the application folder.
     """
     contact = data.get('contact_info', {})
     photo = contact.get('photo', '')
@@ -959,9 +962,12 @@ def get_photo_path(data):
         return None
     if not photo:
         photo = CANDIDATE_PHOTO
-    if not photo or not os.path.exists(str(photo)):
+    photo = str(photo)
+    if not os.path.isabs(photo):
+        photo = os.path.join(SKILL_DIR, photo)
+    if not photo or not os.path.exists(photo):
         return None
-    return str(photo)
+    return photo
 
 
 def stamp_photo_on_pdf(pdf_path, photo_path, render_mode='latex', page_index=0):

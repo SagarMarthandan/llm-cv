@@ -7,7 +7,7 @@ Generate a tailored resume (`Resume.yaml`) from Step 1's `ATS_Report.yaml`, audi
 
 ## Inputs
 - **Base Resume:** `okf/base_files/english/resume.md` or `okf/base_files/german/resume_de.md` (per `language` key in `ATS_Report.yaml`)
-- **Project Portfolio:** `project_info.md` in the company folder (from Step 1 LLM ranking)
+- **Project Portfolio:** `project_info.md` in the company folder (from Step 1 LLM ranking). In wrapper mode, also read `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB) instead of the full 49KB catalog.
 - **ATS Report:** `ATS_Report.yaml` from the company folder — read `render_mode`, `resume_style`, `language`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, `closest_candidate_location` from here. Use archived `Job_Description.yaml` for JD references — do not re-paste raw JD.
 
 ## First Action: Keyword Stuffing Decision
@@ -257,9 +257,11 @@ post_rewrite_ats_score:
   remaining_gaps: []
 ```
 
-## Compilation Commands
+## Compilation Commands (reference only — handled by bash in wrapper mode)
 
-### LaTeX Mode (Steps A–D)
+> In wrapper mode, `run_pipeline.sh` handles all compilation after the session ends. Agents write YAML only. The commands below are for single-session mode or manual debugging.
+
+### LaTeX Mode (Steps A–E)
 ```bash
 cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 
@@ -269,21 +271,17 @@ cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 
 # Step B: Prose refinement + char count check
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/resume_parseability.py" --check-tex "SAGAR_MARTHANDAN_Resume.tex"
-# German: substitute "SAGAR_MARTHANDAN_Lebenslauf.tex"
 
 # Step C: Final compilation (double pdflatex) + photo stamp + ATS report recompile
 pdflatex -interaction=nonstopmode "SAGAR_MARTHANDAN_Resume.tex"
 pdflatex -interaction=nonstopmode "SAGAR_MARTHANDAN_Resume.tex"
-# German: substitute "SAGAR_MARTHANDAN_Lebenslauf.tex"
 
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/stamp_photo.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
-# German: substitute "SAGAR_MARTHANDAN_Lebenslauf.pdf"
 
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf"
 
 # Step D: Parseability audit
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/resume_parseability.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
-# German: substitute "SAGAR_MARTHANDAN_Lebenslauf.pdf"
 
 # Step E: AI watermark check (mandatory — exit 1 = marks found, investigate before proceeding)
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/check_watermarks.py" "Resume.yaml" "SAGAR_MARTHANDAN_Resume.pdf"
@@ -296,6 +294,7 @@ cd "/home/sagar/Applications/[Company Name] — [Job Role]/"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/resume_parseability.py" "SAGAR_MARTHANDAN_Resume.pdf" "Resume.yaml"
 /home/sagar/Skills/llm-cv/.venv/bin/python "/home/sagar/Skills/llm-cv/check_watermarks.py" "Resume.yaml" "SAGAR_MARTHANDAN_Resume.pdf"
+```
 
 > **NO PHOTO STAMPING in ReportFallback mode.** `stamp_photo.py` is LaTeX-only. ReportFallback resumes must never have a photo overlaid — neither via `stamp_photo.py` nor any other method. The `resume.py` dispatcher already guards this (`mode == 'latex'` check), but do NOT invoke `stamp_photo.py` manually either.
 

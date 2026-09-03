@@ -1,63 +1,72 @@
-# Step 2 Session Prompt Template
+# Session 2 Prompt Template (Resume Writer + ATS Rescoring)
 
-This file documents the prompt structure used by `run_pipeline.sh` for Step 2.
-The wrapper script generates this dynamically — this file is for reference/manual use.
+This file documents the prompt structure used by `run_pipeline.sh` for Session 2.
+Session 2 is a dedicated OMP session launched by bash (parallel with Session 3).
+The wrapper script generates this dynamically — this file is for reference.
 
 ## Prompt Structure
 
 ```
-Run the llm-cv pipeline Step 2 ONLY. Do NOT proceed to Step 3.
+Run the llm-cv pipeline Step 2 ONLY. Write a resume YAML file.
 
 Read skill://llm-cv (SKILL.md) and 02_resume_and_visual_audit.md for full instructions.
 
 Application folder: {app_dir}
 
-Read these files from the application folder (do NOT re-paste):
-- ATS_Report.yaml (Step 1 output — improvement blueprint, role archetype, skill_gaps)
-- project_info.md (Step 1 output — tailored project list)
-
 First Action answers (already collected — do NOT use the ask tool):
 - render_mode: {latex|reportfallback}
 - resume_style: {us|german}
 - language: {English|German}
-
-Keyword stuffing decision (already collected — do NOT use the ask tool):
 - keyword_stuffing: {true|false}
 - user_directed_skills: "{comma-separated skills — only if Selective}"
-- score_boost_mode: {true|false}          # true if user opted in when initial ATS score < 85
-- initial_ats_score: {integer}             # from Step 1 ats_score_matrix.total_score
+- score_boost_mode: {true|false}
+- initial_ats_score: {integer}
 
-Execute Step 2 completely:
-If score_boost_mode is true, apply Score-Boost measures from prompts/score_boost.md during the rewrite: Measures 1-3 (student framing, JD phrase weaving, adjacent skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric) in §5 Post-Rewrite ATS Rescoring.
+Read these files from the application folder:
+- ATS_Report.yaml (improvement_blueprint, role_archetype, skill_gaps, closest_candidate_location)
+- selected_projects.yaml (6 ranked projects with full bullets — use this INSTEAD of the full catalog)
+- Job_Description.yaml (for JD references — do NOT re-paste raw JD)
+- okf/base_files/{english|german}/resume_*.md (base resume — detect archetype from ATS_Report.yaml)
+- prompts/score_boost.md (only if score_boost_mode is true)
 
-1. Write Resume.yaml with all projects, skills, experience
-2. Compile the resume (LaTeX: tex-only → pdflatex × 2 → stamp photo; ReportFallback: single compile, NO photo stamping)
-3. Run layout audit → Layout_Audit_Report.yaml
-4. Post-rewrite ATS rescoring → update post_rewrite_ats_score in ATS_Report.yaml
-5. Run parseability audit → Parseability_Report.yaml + .pdf
-6. Recompile ATS_Report.pdf with post-rewrite scores
-7. Verify page fill — zero empty trailing lines at bottom. If under-filled, add project prose or technical skills per §2.5 Space-Fill Directive. Half-empty = FAIL.
-8. Run AI watermark check: `check_watermarks.py Resume.yaml SAGAR_MARTHANDAN_Resume.pdf` — exit 0 = clean, exit 1 = marks found. Investigate any flags before proceeding.
+Write Resume.yaml to the application folder following the schema in 02_resume_and_visual_audit.md.
 
+Key constraints (NON-NEGOTIABLE):
+- Exactly 3 bullets per project, 180-240 chars EN / 160-220 DE, hard 3-line render limit
+- Summary: 2 lines, ≤200 chars EN / ≤170 DE, no tool names
+- Experience bullets: ≤105 chars, 1 line each
+- JD-relevant technical skills only (anti-stuffing)
+- Project tools: 3-5 most JD-relevant per project
+- Anti-hallucination: only projects from selected_projects.yaml, metrics from catalog key_metrics
+- Stop-slop: active voice, no -ly adverbs, no em-dashes (except --- separators)
+- Font rule: LaTeX uses lmodern, never patch preamble
+- Page fill: must fill exactly 1 A4 page, zero empty trailing lines
+
+After writing Resume.yaml, do the Post-Rewrite ATS Rescoring (§5 of 02_resume_and_visual_audit.md):
+- Re-run the 4-category ATS matrix (25pts each, 100 total) on the final resume
+- Write the post_rewrite_ats_score block to ATS_Report.yaml (APPEND, do NOT overwrite the pre-rewrite section)
+- Calculate score_delta and set score_gate_verdict (PROCEED/HOLD)
+
+Do NOT compile any PDFs. Just write Resume.yaml and update ATS_Report.yaml.
 Do NOT ask any questions — all answers are provided above.
-Do NOT proceed to Step 3. This session handles Step 2 only.
+When you are done, print: "STEP 2 COMPLETE"
 ```
 
-## What Step 2 Reads
+## What Session 2 Reads
 - `SKILL.md` (via skill://llm-cv)
 - `02_resume_and_visual_audit.md`
 - `ATS_Report.yaml` (from disk — Step 1 output)
-- `project_info.md` (from disk — Step 1 output)
-- `okf/project_catalog.yaml` (for project verification)
+- `selected_projects.yaml` (~7KB — extracted by bash from project_info.md + full catalog)
+- `Job_Description.yaml` (from disk — Step 1 output)
+- `okf/base_files/{english|german}/resume_*.md` (base resume)
+- `prompts/score_boost.md` (only if score_boost_mode is true)
 
-## What Step 2 Writes
-- `Resume.yaml`, `Resume.tex`/`SAGAR_MARTHANDAN_Resume.tex`/`Lebenslauf.tex`
-- `SAGAR_MARTHANDAN_Resume.pdf`/`Lebenslauf.pdf`
-- `Layout_Audit_Report.yaml`
-- `Parseability_Report.yaml`, `Parseability_Report.pdf`
-- Updates `ATS_Report.yaml` (post_rewrite_ats_score block)
+## What Session 2 Writes
+- `Resume.yaml`
+- `ATS_Report.yaml` updated with `post_rewrite_ats_score` block
+- PDFs compiled by bash after session ends
 
-## Token Budget (with Phase 3 slimming)
-- Base context: ~11K tokens (SKILL.md 3.5K + 02_doc 4K + base resume 1.1K + ATS_Report ~2K)
-- API calls: ~12
-- Total: ~240K tokens (vs ~980K in single-session mode)
+## Token Budget
+- Context: ~14K tokens (SKILL.md 5.5K + 02_doc 4K + selected_projects 1.8K + ATS_Report 2K + base resume 1.1K)
+- API calls: ~10
+- Total: ~120K tokens
