@@ -60,6 +60,8 @@ Repo: https://github.com/SagarMarthandan
 - Introduced CICS audits and MQ monitoring to measure transaction latency and catch issues early.
 - Used SMF and MQ event data to support capacity planning and legacy data pipeline modernization.
 - Automated CICS/MQ maintenance tasks using SMF insights, cutting platform overhead by 15%.
+- Led a team of 5 for 2 years, coordinating sprint delivery and task allocation across CICS and MQ workstreams.
+- ITIL V3 Foundation certified (IBM), applying service management practices to CICS/MQ incident and change workflows.
 
 ### Staff 4 Cruise, Kiel | 10/2019 - 12/2023
 **Supply Chain Coordinator & Supervisor -- Working Student**

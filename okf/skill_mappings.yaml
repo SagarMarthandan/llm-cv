@@ -252,3 +252,11 @@ rules:
   - canonical: "Microsoft Excel"
     prefix: ["microsoft excel"]
     exact: ["excel"]
+
+  # --- Certifications / project management ---
+  - canonical: "ITIL V3 Foundation"
+    prefix: ["itil"]
+    exact: ["itil v3", "itil v3 foundation", "itilv3"]
+  - canonical: "Project Management"
+    prefix: ["project management"]
+    contains: ["team lead", "team leadership"]

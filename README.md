@@ -4,24 +4,30 @@ ATS-optimized resume and cover letter tailoring pipeline. Paste a job descriptio
 
 ## How It Works
 
-The agent asks 4 configuration questions, then launches `run_pipeline.sh` which orchestrates 3 isolated OMP sessions via bash. Each session gets a focused prompt a flash model can handle. Bash handles all compilation, fix loops, and Obsidian sync. No subagent spawning.
+The agent asks 4 configuration questions, then launches `run_pipeline.sh` in two stages. The pipeline makes 3 direct OpenRouter API calls via `api_pipeline.py` — no OMP sessions, no subagent spawning. A 10.5K-token static system prompt (step docs, golden examples, constraints) is sent with `cache_control` on every call, so OpenRouter caches the prefix at ~10x discount after the first call.
 
 ```
-User says "llm-cv" + JD
+User says "llm-cv" + JD (URL, file, or pasted text)
     │
+    ├── [if URL] Agent scrapes JD via firecrawl_scrape → saves to /tmp/llm-cv-jd.txt
     ├── Agent asks 4 questions (render mode, style, source, language)
     │
-    └── Agent launches run_pipeline.sh with all flags via ONE bash call
+    ├── Stage 1: run_pipeline.sh --stage 1 --file /tmp/llm-cv-jd.txt ...
+    │       │
+    │       ├── Step 1 API call: ATS + JD archival + project ranking (reads 21KB condensed catalog)
+    │       ├── [bash] Compile Step 1 PDFs + extract selected projects → selected_projects.yaml
+    │       └── Prints APP_DIR, SKILL_GAPS, ATS_SCORE to stdout
+    │
+    ├── Agent reads SKILL_GAPS, asks user about keyword stuffing
+    │
+    └── Stage 2: run_pipeline.sh --stage 2 --app-dir ... --stuffing ... --force
             │
-            ├── Session 1: ATS + JD archival + project ranking (reads 21KB condensed catalog)
-            ├── [bash] Compile Step 1 PDFs + extract selected projects → selected_projects.yaml
-            ├── [bash] Duplicate application check
-            ├── Session 2: Resume writer + ATS rescoring (reads 7KB selected_projects.yaml)  ┐ parallel
-            ├── Session 3: Cover letter writer (reads project_info.md)                       ┘
+            ├── Step 2 API call: Resume writer + ATS rescoring (reads 7KB selected_projects.yaml)  ┐ parallel
+            ├── Step 3 API call: Cover letter writer (reads project_info.md)                       ┘
             └── [bash] Compile all PDFs + fix loop + photo stamp + watermark check + Obsidian sync
 ```
 
-No vector databases. No embedding models. No keyword matching algorithms. The LLM is the ranker.
+3 API calls total (+ optional fix calls). Model: qwen/qwen3.8-flash with reasoning disabled. Cost: ~$0.01/run. Time: ~1-2 min/run.
 
 ## Quick Start
 
@@ -33,10 +39,16 @@ cd /home/sagar/Skills/llm-cv
 ./run_pipeline.sh "paste JD text here"
 ./run_pipeline.sh --file jd.txt
 
-# Non-interactive (all options via CLI flags — agent mode)
-./run_pipeline.sh --url "https://..." \
+# Non-interactive — Stage 1 (agent mode)
+./run_pipeline.sh --file /tmp/llm-cv-jd.txt \
     --render latex --style german --source "Cold Apply" --language English \
-    --stuffing none --score-boost auto
+    --stage 1
+
+# Non-interactive — Stage 2 (agent mode)
+./run_pipeline.sh \
+    --stage 2 --app-dir "/home/sagar/Applications/Company — Role" \
+    --render latex --style german --language English \
+    --stuffing none --score-boost yes --force
 ```
 
 Outputs land in `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`.
@@ -45,20 +57,25 @@ Outputs land in `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`.
 
 | Flag | Values | Default |
 |:---|:---|:---|
-| `--url` / `--file` / positional | JD source | required |
+| `--file` / `--url` / positional | JD source | required |
+| `--stage` | `1` / `2` | full pipeline (no flag) |
+| `--app-dir` | application folder path | required for stage 2 |
 | `--render` | `latex` / `reportfallback` | `latex` |
 | `--style` | `us` / `german` | `us` |
 | `--source` | `Cold Apply` / `Referral` / `LinkedIn Connection` / `Direct` | `Cold Apply` |
 | `--language` | `English` / `German` | auto-detect from JD |
 | `--weak-tie` | Contact name/role | required if source is Referral/LinkedIn |
 | `--stuffing` | `none` / `all` / `selective` | `none` |
-| `--score-boost` | `auto` / `yes` / `no` | `auto` (applies when ATS score < 85) |
+| `--user-skills` | Skills to add (Selective) | required if stuffing=selective |
+| `--score-boost` | `yes` / `no` | `yes` (always on) |
+| `--force` | skip duplicate check prompt | required for non-interactive stage 2 |
 
 ## Prerequisites
 
 - **Python 3.10+** with `pyyaml`, `reportlab`, `pypdf` (in `.venv/`)
 - **TeX Live** (`pdflatex`) for LaTeX-mode PDFs
-- **OMP CLI** (`omp`) at `~/.local/bin/omp` for session launching
+- **OpenRouter API key** stored in OMP's SQLite DB (`~/.omp/agent/agent.db`, table `auth_credentials`, provider `openrouter`)
+- **Firecrawl MCP tool** available (for URL-based JD scraping)
 - **Candidate photo** (`okf/SAGAR_MARTHANDAN_foto.jpg`) — stamped onto LaTeX-mode resume PDFs
 
 ```bash
@@ -70,66 +87,59 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 
 | Step | What happens | Outputs |
 |:---|:---|:---|
-| **0** (optional) | Scrape JD from URL. Jina Reader for JS-SPA sites, webfetch for static, manual paste fallback. | Clean JD text |
-| **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (15 → top 6 from condensed 21KB catalog), JD archival, location tailoring. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
+| **0** (optional) | Agent scrapes JD from URL via Firecrawl MCP tool. Fallback: pipeline fetches via Jina Reader. | Clean JD text at `/tmp/llm-cv-jd.txt` |
+| **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (15 → top 6 from condensed 21KB catalog), JD archival, location tailoring. Direct API call. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
 | **[bash]** | Compile Step 1 PDFs. Extract full project data for ranked projects via `extract_projects.py`. | `selected_projects.yaml` (~7KB) |
-| **Dup** | Duplicate application check against Obsidian vault + Applications tree. User chooses: proceed, abort, or reuse prior resume. | stdout |
-| **2** | Resume rewrite from `selected_projects.yaml` (7KB, not 49KB full catalog). Skill gap closure, keyword stuffing, 3-line project summaries, optional Score-Boost Mode. Post-rewrite ATS rescoring. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf` |
-| **3** (parallel with 2) | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
+| **2** | Resume rewrite from `selected_projects.yaml` (7KB). Skill gap closure, keyword stuffing, 3-bullet project summaries with mandatory quantitative metrics. Post-rewrite ATS rescoring. Direct API call. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf` |
+| **3** (parallel with 2) | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. Direct API call. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **[bash]** | Compile resume (pdflatex x2 → stamp photo → parseability audit → watermark check). Compile cover letter. Fix loop if parseability fails. Obsidian sync + folder sort. | Final PDFs, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 
-## Bash-Orchestrated Architecture
+## Direct API Architecture
 
-`run_pipeline.sh` is the default and only mode for pipeline runs. It launches 3 OMP sessions via bash and handles all compilation between them.
+`api_pipeline.py` makes 3 direct OpenRouter API calls. No OMP sessions, no subagent spawning. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Bash handles all parallelism, compilation, and coordination.
 
-**Why not single-session:** A single-session run consumes ~8M tokens ($0.13). The wrapper uses 3 isolated sessions + bash compilation = ~2M tokens ($0.04). The agent's only job is to ask 4 questions and launch the wrapper.
+### Static-First Cache Architecture
 
-### Session flow
+A 10.5K-token `SYSTEM_PROMPT` is loaded once at module import via `_load_system_prompt()`. It contains:
+- Full step docs (02_resume_and_visual_audit.md, 03_cover_letter.md)
+- Score-boost measures (prompts/score_boost.md)
+- Guardrails, resume constraints, German/US schema templates
+- John Deere golden resume + cover letter as few-shot examples
 
-```
-Session 1 (Step 1): ATS + ranking     ~13 API calls
-    reads: SKILL.md + 01_ats_and_jd_archival.md + condensed catalog (21KB) + base resume
-    writes: ATS_Report.yaml, Job_Description.yaml, project_info.md
-    ↓ session ends — clean context
+Sent as system message with `cache_control: {"type": "ephemeral"}` in content array format. After the first call, OpenRouter caches the prefix at ~10x discount. Cache hits observed: 0% (cold) → 60% → 80% across a run.
 
-[bash] Compile Step 1 PDFs + extract_projects.py → selected_projects.yaml (7KB)
-[bash] Duplicate application check
-[bash] Keyword stuffing + score-boost decisions (from CLI flags)
+Variable user message contains only JD, ATS report, config, task instructions — no guardrails or constraints (those are in the static system prompt).
 
-Session 2 (Step 2): Resume writer      ~11 API calls     ┐ parallel
-    reads: SKILL.md + 02_resume_and_visual_audit.md + selected_projects.yaml (7KB) + ATS_Report.yaml
-    writes: Resume.yaml, updates ATS_Report.yaml with post_rewrite_ats_score
-    ↓ session ends                                          │
-                                                              │
-Session 3 (Step 3): Cover letter       ~5 API calls       ┘
-    reads: SKILL.md + 03_cover_letter.md + project_info.md + ATS_Report.yaml
-    writes: Cover_Letter.yaml
-    ↓ session ends
+### 2-Stage Pipeline Split
 
-[bash] Compile resume (pdflatex x2 → stamp photo → parseability → watermark)
-[bash] Compile cover letter (yaml_to_pdf → watermark)
-[bash] Obsidian sync + sort
-```
-
-### Inter-step contract
-
-`ATS_Report.yaml` carries `render_mode`, `resume_style`, `language`, `application_source`, `skill_gaps`, `improvement_blueprint`, `role_archetype`, `closest_candidate_location` — all read by Sessions 2 and 3 from disk. The wrapper passes keyword stuffing and score-boost decisions inline via the session prompt.
+Keyword stuffing is asked AFTER Step 1 when skill gaps are known, not blind upfront. Stage 1 prints `APP_DIR`, `SKILL_GAPS`, `ATS_SCORE` to stdout. Agent reads these, asks user, then launches stage 2.
 
 ### Token consumption
 
-| Mode | Per run | Cost | Notes |
-|:---|:---|:---|:---|
-| Single-session (old) | ~8M | $0.13 | Agent handles all steps in one conversation |
-| Wrapper v1 (interactive) | ~3.4M | $0.07 | 3 sessions + bash, but parent feeds `select` menus via `hub` |
-| **Wrapper v2 (CLI flags)** | **~2M** | **$0.04** | Parent does 1 `ask` + 1 `bash` call. 3 child sessions unchanged |
+| Mode | Per run | Cost | API calls | Notes |
+|:---|:---|:---|:---|:---|
+| Single-session (old) | ~8M | $0.13 | ~63 | Agent handles all steps in one conversation |
+| Wrapper v2 (OMP sessions) | ~2M | $0.04 | ~29 | 3 OMP sessions + bash, CLI flags |
+| **Direct API v4** | **~50K** | **~$0.01** | **3 + fix** | 3 OpenRouter calls + bash compilation. Prompt caching. |
 
-### Bug fixes in wrapper v2
+### Compilation
 
-- **`run_session_bg` stdout pollution:** `log()` echoed to stdout, mixing with PID capture. Fixed: redirect to `>&2`.
-- **`$(...)` subshell orphans background process:** `PID=$(run_session_bg ...)` runs in a subshell; the backgrounded `timeout` is reparented to init, so `wait $PID` fails. Fixed: use global `_BG_PID=$!` variable.
-- **`find` breaks on paths with spaces:** `for f in $(find ...)` splits "Company — Role" into words. Fixed: `while IFS= read -r` with process substitution.
-- **`ls` pipefail exit 2:** Glob mismatch under `set -e` + `pipefail` caused cosmetic exit 2 at pipeline end. Fixed: `set +e` around the `ls | awk` pipeline.
-- **Photo path resolution:** `get_photo_path()` checked relative paths from the application folder cwd, but photo paths in YAML are relative to the skill directory. Fixed: resolve relative paths against `SKILL_DIR` from `config.py`.
+`lib/compile.sh` (199 lines) contains all compilation functions, sourced by `run_pipeline.sh`:
+- `compile_step1_pdfs()` — ATS_Report.pdf + Job_Description.pdf
+- `compile_resume()` — tex → pdflatex x2 → stamp_photo → parseability → watermark
+- `compile_cover_letter()` — yaml_to_pdf → watermark
+- `generate_layout_audit()` — Layout_Audit_Report.yaml
+
+## Page Fill Directive
+
+Resumes must fill the ENTIRE text area between margins, top to bottom. The renderer uses 0.4in margins on A4. If content stops 15-20% short of the bottom margin, the resume looks unfinished. Fill the page by adding MORE CONTENT, not longer prose:
+
+- 5-6 technical_skills categories (not 4) with 5-7 skills each
+- 5th project from selected_projects.yaml if 4 projects leave visible empty space
+- 5th-6th IBM bullet (max 105 chars) if still short
+- NEVER extend bullet prose to fill space — long bullets are an eyesore for recruiters
+
+Every project bullet must contain at least one quantitative metric (a number: %, count, latency, size, duration). A bullet without a number is a hard FAIL.
 
 ## Condensed Catalog
 
@@ -153,8 +163,6 @@ Resumes compiled in LaTeX mode automatically get the candidate's headshot stampe
 - **Custom photo:** Set `contact_info.photo: okf/path/to/photo.jpg` in `Resume.yaml` (relative to skill dir)
 - **Override default:** Set `LLM_CV_CANDIDATE_PHOTO` env var
 
-Relative photo paths in YAML are resolved against the skill directory (`SKILL_DIR` from `config.py`), not the current working directory. This ensures stamping works regardless of where `stamp_photo.py` is invoked from.
-
 ## AI Watermark Check
 
 After every resume and cover letter compilation, `check_watermarks.py` scans the generated YAML and PDF files for AI provenance marks across three layers:
@@ -169,9 +177,7 @@ Exit 0 = clean, exit 1 = marks found. Detection only — does not modify files.
 
 ## Score-Boost Mode
 
-When the initial ATS score from Step 1 is below 85, the wrapper can apply score-boosting measures before launching Step 2. Pass `--score-boost auto` (default) to apply automatically when score < 85, or `--score-boost yes`/`no` to force.
-
-Four measures (full detail in `prompts/score_boost.md`):
+Score-boost is always on (`--score-boost yes`). Four measures (full detail in `prompts/score_boost.md`):
 
 1. **Student Framing** — leads summary with "M.Sc. student in [field] and [archetype]" for intern/student roles
 2. **Exact JD Phrase Weaving** — weaves distinctive JD verb phrases into truthful bullet prose
@@ -187,6 +193,7 @@ Before the resume rewrite, `check_duplicate_application.py` searches the Obsidia
 - **Normalizes** company names (strips GmbH, AG, SE & Co. KG) and role titles (strips `(m/w/d)`, `(all genders)`)
 - **Thresholds:** company similarity >= 0.88, role similarity >= 0.82 (lowered to 0.77 when company is near-exact)
 - **Options:** Proceed (rewrite anyway), Abort (stop), Reuse prior resume (copy as Step 2 starting point)
+- **Non-interactive:** Pass `--force` to skip the interactive prompt (required for agent-launched stage 2)
 
 ## Project Catalog
 
@@ -204,13 +211,11 @@ llm-cv/
 ├── 02_resume_and_visual_audit.md     # Step 2: Resume rewrite + audit
 ├── 03_cover_letter.md                # Step 3: Cover letter
 ├── 99_completion_checklist.md        # Post-pipeline verification (lazy-loaded)
-├── run_pipeline.sh                   # Bash-orchestrated wrapper (v3, ~920 lines)
+├── api_pipeline.py                   # Direct OpenRouter API calls (3 steps + fix)
+├── run_pipeline.sh                   # 2-stage bash orchestrator (615 lines)
+├── lib/compile.sh                    # Compilation functions (199 lines, sourced)
 ├── extract_projects.py               # Condensed catalog + selected projects extraction
-├── prompts/                          # Session prompt templates (reference docs)
-│   ├── step1.md
-│   ├── step2.md
-│   ├── step3.md
-│   └── score_boost.md
+├── prompts/                          # Reference docs (score_boost.md etc.)
 ├── config.py                         # Location lookup, candidate info, SKILL_DIR
 ├── yaml_to_pdf.py                    # PDF compilation entry point
 ├── resume_parseability.py            # ATS parse-integrity audit

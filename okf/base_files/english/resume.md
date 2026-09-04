@@ -73,6 +73,8 @@ Data professional with an M.Sc. in Computer Science and enterprise-grade product
 * Strengthened data integrity and operational resilience by introducing CICS audits and enhanced monitoring to measure transaction latency and detect issues before MQ export.
 * Used operational event data (SMF, MQ Events) to support capacity planning and modernization of enterprise data pipelines — bridging legacy ERP infrastructure with strategic data initiatives.
 * Reduced platform overhead and improved data access performance by automating recurring CICS and MQ operational maintenance (15 percent) using insights from SMF and MQ event logs.
+* Led a team of 5 for 2 years, coordinating sprint delivery and task allocation across CICS and MQ workstreams.
+* ITIL V3 Foundation certified (IBM), applying service management best practices to CICS/MQ incident and change workflows.
 
 **SPOKEN LANGUAGES**
 

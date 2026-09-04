@@ -1,5 +1,41 @@
 # Changelog
 
+## v4.0.0 — 2026-09-04
+
+### Added
+
+- **Direct OpenRouter API architecture (`api_pipeline.py`):** Replaced 29 OMP session calls with 3 direct OpenRouter API calls. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Model: qwen/qwen3.8-flash with reasoning disabled. Cost: ~$0.01/run (was $0.04). Time: 1-2 min/run (was 10 min). ~1236 lines.
+- **Static-First cache architecture:** 10.5K-token `SYSTEM_PROMPT` loaded once at module import via `_load_system_prompt()`. Contains full step docs (02, 03), score_boost.md, guardrails, resume constraints, German/US schema templates, and John Deere golden resume + cover letter as few-shot examples. Sent as system message with `cache_control: {"type": "ephemeral"}` in content array format. Cache hits: 0% (cold) → 60% → 80% across a run.
+- **2-stage pipeline split:** `run_pipeline.sh` split into `--stage 1` (Step 1 + compile + extract, prints APP_DIR/SKILL_GAPS/ATS_SCORE) and `--stage 2` (Steps 2+3 parallel + compilation + fix loop + Obsidian sync). Keyword stuffing asked AFTER Step 1 when skill gaps are known.
+- **`lib/compile.sh` extraction:** All compilation functions extracted to `lib/compile.sh` (199 lines): `compile_step1_pdfs()`, `get_resume_filenames()`, `get_cover_letter_filename()`, `compile_resume()`, `compile_cover_letter()`, `generate_layout_audit()`. Sourced by `run_pipeline.sh`. Main file down from 797 to 615 lines.
+- **Firecrawl JD scraping:** Agent scrapes JD via `firecrawl_scrape` MCP tool before launching the pipeline, saves to `/tmp/llm-cv-jd.txt`, passes `--file`. Fixes Jina Reader redirect-following issue on Indeed/Personio. Pipeline spends zero tokens on JD fetching.
+- **Page fill directive:** Resumes must fill the ENTIRE text area between margins. Fill via 5-6 technical_skills categories (5-7 skills each), 5th project, 5th-6th IBM bullet. Never extend bullet prose to fill space.
+- **Mandatory quantitative metric per bullet:** Every project bullet must contain at least one quantitative metric (%, count, latency, size, duration). A bullet without a number is a hard FAIL.
+- **ITIL V3 Foundation and Project Management:** Added as IBM work experience bullets to all 5 English + 1 German base resume files. Added to `okf/skill_mappings.yaml` for Obsidian sync normalization. IBM now has 6 bullets available (was 4).
+- **New CLI flags:** `--stage 1|2`, `--app-dir`, `--user-skills`, `--force` (skip duplicate check prompt for non-interactive stage 2).
+
+### Changed
+
+- **`run_pipeline.sh` rewritten:** 797 → 615 lines. Two-stage flow with `--stage 1|2`. Sources `lib/compile.sh`. No more OMP session launching, `hub` monitoring, or `select` menu feeding.
+- **SKILL.md updated:** 4 initial questions (was 5, keyword stuffing moved post-Step-1). 2-stage flow documented. Firecrawl JD scraping documented. Flag reference updated. Page fill directive added to Step 2 Hard Constraints.
+- **Schema templates (German + US):** 5-6 skills categories (was 4), 5 project slots (was 4, 5th conditional on page fill), 4-6 IBM bullets (was exactly 4).
+- **Golden example comment:** Updated to note golden example has 4 projects/4 skills categories, but model should use 5-6 skills and add 5th project if page has empty space.
+- **Project count constraint:** Changed from "3-4 projects maximum. Never 5." to "3-5 projects. Default to 4. Add a 5th ONLY when needed for page fill."
+- **Token consumption:** ~50K tokens/run (was ~2M). ~$0.01/run (was $0.04). 3 API calls (was 29). 1-2 min/run (was 10 min).
+
+### Files Modified
+
+- `api_pipeline.py` — new file (~1236 lines). Direct OpenRouter API calls, static system prompt, 3 step builders, fix loop, URL fetch.
+- `run_pipeline.sh` — rewritten to 2-stage flow (615 lines, was 797).
+- `lib/compile.sh` — new file (199 lines). Compilation functions extracted.
+- `SKILL.md` — 4 initial questions, 2-stage flow, Firecrawl JD scraping, page fill directive, flag reference.
+- `okf/base_files/english/*.md` — 5 files: added ITIL V3 Foundation + team lead bullets to IBM section.
+- `okf/base_files/german/resume_de.md` — added team lead bullet + Projektmanagement to WEITERE KOMPETENZEN.
+- `okf/skill_mappings.yaml` — added ITIL V3 Foundation and Project Management normalization rules.
+- `README.md` — complete overhaul for v4.0 architecture.
+- `docs/ARCHITECTURE.md` — complete overhaul for v4.0 architecture.
+- `docs/CHANGELOG.md` — v4.0.0 entry added.
+
 ## v2.0.0 — 2026-09-03
 
 ### Added

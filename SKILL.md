@@ -7,11 +7,31 @@ dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 
 ## Trigger Action (MANDATORY — read first)
 
-When the user says "llm-cv" with a JD (pasted text, `--url`, or `--file`), do exactly TWO things:
+When the user says "llm-cv" with a JD (pasted text, URL, or file path), do exactly TWO things:
+
+### Step 0 (if URL): Fetch JD via Firecrawl
+
+When the user provides a URL, scrape the JD **before** launching the pipeline using the `firecrawl_scrape` MCP tool.
+This ensures correct content extraction (Jina Reader follows redirects and can return wrong jobs on Indeed/Personio).
+Firecrawl scrapes the actual page directly.
+
+```
+firecrawl_scrape(url="https://de.indeed.com/viewjob?jk=...", formats=["markdown"])
+```
+
+Save the returned markdown content to a temp file:
+```bash
+cat > /tmp/llm-cv-jd.txt << 'EOF'
+[paste the markdown content from firecrawl_scrape response]
+EOF
+```
+
+Then pass `--file /tmp/llm-cv-jd.txt` to the pipeline instead of `--url`.
+If Firecrawl fails or returns <200 chars, fall back to `--url` (pipeline uses Jina Reader internally).
 
 ### Step 1: Ask First Action questions via `ask`
 
-Ask the user **four** questions in a single `ask` call (same batch). These configure the entire run:
+Ask the user **four** questions in a single `ask` call (same batch). These configure the run:
 
 | # | Setting | Header | Options |
 |---|---------|--------|---------|
@@ -22,29 +42,63 @@ Ask the user **four** questions in a single `ask` call (same batch). These confi
 
 If `Referral` or `LinkedIn Connection`, also ask for contact name/role.
 
-### Step 2: Launch `run_pipeline.sh` with all flags via bash
+Keyword stuffing is NOT asked here — it is asked AFTER Step 1 when skill gaps are known.
 
-Pass all selections as CLI flags so the wrapper runs NON-INTERACTIVELY (no `select` prompts, no `hub` needed). Use `--stuffing none` and `--score-boost auto` as safe defaults:
+### Step 2: Launch Stage 1 (Step 1 — ATS analysis)
+
+Pass all selections as CLI flags. Use `--file` if JD was fetched via Firecrawl, `--url` as fallback:
 
 ```bash
-cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh --url "https://..." \
+cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh --file /tmp/llm-cv-jd.txt \
     --render latex --style german --source "Cold Apply" --language English \
-    --stuffing none --score-boost auto
+    --stage 1
+```
+
+Stage 1 runs Step 1 (ATS analysis + JD archival + project ranking), compiles PDFs, extracts projects, then prints to stdout:
+```
+APP_DIR:/home/sagar/Applications/Company — Role
+SKILL_GAPS:Python, Kubernetes, Terraform
+ATS_SCORE:75
+```
+
+### Step 3: Ask keyword stuffing question (post-Step-1)
+
+Read `SKILL_GAPS` from Stage 1 output. Ask the user via `ask`:
+
+| # | Setting | Header | Options |
+|---|---------|--------|---------|
+| 1 | Keyword stuffing | "Skill gaps found: [list]" | `No stuffing` — JD-relevant skills only / `Add all` — fill all skill gaps / `Selective` — choose specific skills to add |
+
+If `Selective`, also ask which skills to add (comma-separated).
+
+### Step 4: Launch Stage 2 (Steps 2+3 — resume + cover letter + compile)
+
+Pass the stuffing decision and app-dir from Stage 1:
+
+```bash
+cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh \
+    --stage 2 --app-dir "/home/sagar/Applications/Company — Role" \
+    --render latex --style german --language English \
+    --stuffing none --score-boost yes
 ```
 
 **Flag reference:**
-- `--url "..."` / `--file path` / `"pasted JD text"` — JD source
+- `--file path` — JD from file (PREFERRED for URLs: agent scrapes via Firecrawl first, saves to /tmp/llm-cv-jd.txt, passes --file)
+- `--url "..."` — JD from URL (FALLBACK: pipeline fetches via Jina Reader internally; can follow redirects incorrectly on Indeed/Personio)
+- `"pasted JD text"` — JD passed directly as argument (for pasted text)
+- `--stage 1|2` — pipeline phase (1 = Step 1 only, 2 = Steps 2+3 + compile)
+- `--app-dir "..."` — application folder path (stage 2 required, from stage 1 output)
 - `--render latex|reportfallback` — render mode
 - `--style us|german` — resume style
-- `--source "Cold Apply"|"Referral"|"LinkedIn Connection"|"Direct"` — application source
+- `--source "Cold Apply"|"Referral"|"LinkedIn Connection"|"Direct"` — application source (stage 1)
 - `--language English|German` — language
-- `--weak-tie "contact name/role"` — required if source is Referral or LinkedIn Connection
-- `--stuffing none|all|selective` — keyword stuffing (default: none)
-- `--score-boost auto|yes|no` — auto applies when ATS score < 85 (default: auto)
+- `--stuffing none|all|selective` — keyword stuffing (asked post-Step-1, passed to stage 2)
+- `--user-skills "..."` — skills to add (only if Selective)
+- `--score-boost yes` — always on (only increases quality)
 
-The wrapper runs to completion: 3 OMP sessions, compilation, fix loops, Obsidian sync. It prints the summary block at the end. Do NOT intercept, monitor via `hub`, or replicate its logic. Just launch it via `bash` and wait for the output.
+Stage 2 runs to completion: Steps 2+3 (parallel API calls), compilation, fix loops, Obsidian sync. It prints the summary block at the end. Do NOT intercept, monitor via `hub`, or replicate its logic. Just launch it via `bash` and wait for the output.
 
-**Why this matters:** A single-session run consumes ~8M tokens ($0.13). The wrapper uses 3 isolated sessions + bash compilation = ~1M tokens ($0.03). The agent running steps itself is the failure mode — the wrapper exists to prevent it.
+**Why this matters:** Direct API calls (3 calls, ~$0.01, ~1-2 min) vs old OMP sessions (63 calls, ~$0.07, ~25 min). The wrapper handles everything — just launch and wait.
 
 **Exception — "llm-cv refresh":** When the user says "llm-cv refresh" (no JD), do NOT launch the wrapper. Follow the Self-Refresh section at the bottom of this file.
 
@@ -67,10 +121,10 @@ The wrapper runs to completion: 3 OMP sessions, compilation, fix loops, Obsidian
 
 ## Pipeline Overview
 
-Step 1: ATS analysis + JD archival + project ranking (reads condensed catalog) → `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md`
+Step 1: ATS analysis + JD archival + project ranking (direct API call, reads condensed catalog) → `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md`
 [bash] Compile Step 1 PDFs + extract selected projects → `selected_projects.yaml`
-Session 2: Resume writer + ATS rescoring (reads `selected_projects.yaml`) → `Resume.yaml`
-Session 3: Cover letter writer (parallel with Session 2) → `Cover_Letter.yaml`
+Step 2: Resume writer + ATS rescoring (direct API call, reads `selected_projects.yaml`) → `Resume.yaml`
+Step 3: Cover letter writer (direct API call, parallel with Step 2) → `Cover_Letter.yaml`
 [bash] Compile all PDFs + fix loop + obsidian sync
 Post-Step-1: Duplicate Application Check (wrapper mode) → searches Obsidian vault + Applications tree for prior applications to same company + role; prompts user to proceed, abort, or reuse prior resume
 Post: Obsidian sync + sort → moves folder to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
@@ -122,7 +176,7 @@ The user must provide:
 
 > **Wrapper mode:** `run_pipeline.sh` handles First Action prompts via interactive `select` menus. The agent does NOT ask these questions — the wrapper does. The section below documents the options for reference and for single-session debugging.
 
-Ask the user **four** questions in a single `ask` call (all four as separate questions in the same batch). These selections configure the entire pipeline run:
+Ask the user **four** questions in a single `ask` call (all four as separate questions in the same batch). These selections configure the pipeline run:
 
 | # | Setting | Header | Options |
 |---|---------|--------|---------|
@@ -130,6 +184,8 @@ Ask the user **four** questions in a single `ask` call (all four as separate que
 | 2 | Resume style | "Resume style" | `US Style` — Summary→Skills→Projects→Experience→Education→Languages / `German Style` — Summary→Experience→Education→Skills→Languages (projects folded into experience as project_bullets under "Independent Data Engineering" entry ending Apr 2025; title is concrete role, never Architect/Lead/Manager) |
 | 3 | Application source | "Application source" | `Cold Apply` / `Referral` (prompt for contact) / `LinkedIn Connection` (prompt for contact) / `Direct` |
 | 4 | Language | "Language" | `English` (loads okf/base_files/english/) / `German` (loads okf/base_files/german/) |
+
+Keyword stuffing is asked AFTER Step 1 completes, when skill gaps are known. See Step 3 above.
 
 > Language selection overrides JD language auto-detection. Useful for international roles at German companies.
 
@@ -166,23 +222,22 @@ In agentic IDEs (Devin, Claude Code, Oh My Pi, etc.), emitting lengthy planning 
 
 These rules apply to ALL pipeline steps (0, 1, 2, 3) and all post-pipeline actions.
 
-## Bash-Orchestrated Architecture (DEFAULT — always use the wrapper)
+## Direct API Architecture (DEFAULT — always use the wrapper)
 
-The pipeline runs via `run_pipeline.sh` — 3 simple OMP sessions launched by bash. No subagent spawning. Each session gets a focused prompt: "read these files, write this YAML, done." Bash handles all parallelism, compilation, and coordination. This is the DEFAULT and ONLY mode for pipeline runs.
+The pipeline runs via `run_pipeline.sh` — 3 direct OpenRouter API calls via `api_pipeline.py`. No OMP sessions, no subagent spawning. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Bash handles all parallelism, compilation, and coordination.
 
-Architecture:
-1. Agent asks First Action questions via `ask`, passes all answers as CLI flags
-2. **Session 1** (`omp -p --auto-approve`) → ATS analysis + JD archival + project ranking. Agent reads condensed catalog (21KB) directly and writes project_info.md. Does NOT compile PDFs.
-3. **[bash]** Compiles ATS_Report.pdf + Job_Description.pdf. Runs `extract_projects.py` → `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB).
-4. **Duplicate Application Check** — `check_duplicate_application.py` against Obsidian vault + Applications tree
-5. Keyword stuffing + score-boost decisions applied from CLI flags (no interactive prompts)
-6. **Session 2** (`omp -p --auto-approve`) → Resume writer. Reads `selected_projects.yaml` (~7KB) instead of 49KB catalog. Writes Resume.yaml + updates ATS_Report.yaml with post_rewrite_ats_score. Does NOT compile PDFs.
-7. **Session 3** (`omp -p --auto-approve`, parallel with Session 2) → Cover letter writer. Reads project_info.md. Writes Cover_Letter.yaml. Does NOT compile PDFs.
-8. **[bash]** Waits for both sessions. Compiles resume (tex → pdflatex ×2 → stamp → parseability → watermark). Compiles cover letter. Fix loop if parseability fails (launches minimal fix session). Recompiles ATS_Report.pdf. Obsidian sync + sort.
+1. Agent asks 4 First Action questions via `ask` (render, style, source, language). Keyword stuffing is NOT asked here.
+2. **Stage 1** (`run_pipeline.sh --stage 1`) → Step 1 API call (ATS analysis + JD archival + project ranking). Outputs APP_DIR, SKILL_GAPS, ATS_SCORE to stdout.
+3. Agent reads SKILL_GAPS, asks user about keyword stuffing via `ask` (No stuffing / Add all / Selective).
+4. **Stage 2** (`run_pipeline.sh --stage 2 --app-dir ... --stuffing ...`) → Steps 2+3 API calls (parallel), compilation, fix loops, Obsidian sync. Prints summary block.
+5. **Duplicate Application Check** — `check_duplicate_application.py` against Obsidian vault + Applications tree (inside stage 2)
+6. **Step 2** (`api_pipeline.py step2`) → Resume writer. API call reads selected_projects.yaml + ATS_Report + JD + base resume, outputs Resume.yaml + post_rewrite_ats_score. Does NOT compile PDFs.
+7. **Step 3** (`api_pipeline.py step3`, parallel with Step 2) → Cover letter writer. API call reads ATS_Report + JD + project_info, outputs Cover_Letter.yaml. Does NOT compile PDFs.
+8. **[bash]** Waits for both steps. Compiles resume (tex → pdflatex ×2 → stamp → parseability → watermark). Compiles cover letter. Fix loop if parseability fails (calls `api_pipeline.py fix`). Recompiles ATS_Report.pdf. Obsidian sync + sort.
 
-Key design: bash launches Sessions 2 and 3 in parallel using `&` and `wait`. No LLM subagent spawning required — flash-model safe. Token savings come from separate sessions (clean context) + bash compilation (0 tokens) + condensed catalog (21KB vs 49KB). The parent agent does ONE `ask` + ONE `bash` call = ~4 API calls total.
+Key design: bash launches Steps 2 and 3 in parallel using `&` and `wait`. 3 API calls total (+ optional fix calls). Model: qwen/qwen3.8-flash with reasoning disabled. Cost: ~$0.01/run. Time: ~1-2 min/run. The parent agent does TWO `bash` calls (stage 1 + stage 2) with one `ask` in between for stuffing.
 
-**Single-session mode** (below) is for MANUAL DEBUGGING ONLY — when you need to inspect a specific step's output interactively. Do NOT use it for normal pipeline runs. It consumes ~30x more tokens than the wrapper.
+**Single-session mode** (below) is for MANUAL DEBUGGING ONLY — when you need to inspect a specific step's output interactively. Do NOT use it for normal pipeline runs.
 
 
 ## Single-Session Mode (Manual Debugging Only)
@@ -191,9 +246,11 @@ Key design: bash launches Sessions 2 and 3 in parallel using `&` and `wait`. No 
 
 ### STEP 0 (optional): JD Fetch — URL → Job Description Text
 
-Run **only** when user provides a URL. Read `00_jd_fetch.md`. Fetches rendered page, extracts clean JD text, validates (role title + company + ≥2 section markers + >200 chars). JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio) → Jina Reader directly. Static/Unknown → `webfetch` first, Jina fallback. Manual paste is always the final fallback.
+**Primary method (agent-side):** When the user provides a URL, the agent scrapes it via `firecrawl_scrape` MCP tool (formats: ["markdown"]) BEFORE launching the pipeline. Save the markdown to `/tmp/llm-cv-jd.txt` and pass `--file /tmp/llm-cv-jd.txt` to `run_pipeline.sh`. Firecrawl extracts the actual page content without following redirects (Jina Reader follows redirects and can return wrong jobs on Indeed/Personio).
 
-**Output:** Clean JD text + `source_url` + ATS vendor → handed to Step 1. Cache at `okf/.jd_cache/<sha1(url)>.txt` (7-day TTL).
+**Fallback (pipeline-side):** If `--url` is passed directly, `api_pipeline.py fetch` uses Jina Reader (`r.jina.ai/{url}`). Cache at `okf/.jd_cache/<sha1(url)>.txt` (7-day TTL). JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio) → Jina Reader directly. Static/Unknown → direct fetch, Jina fallback. Manual paste is always the final fallback.
+
+**Output:** Clean JD text + `source_url` + ATS vendor → handed to Step 1.
 
 ---
 
@@ -201,9 +258,9 @@ Run **only** when user provides a URL. Read `00_jd_fetch.md`. Fetches rendered p
 
 Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories × 25pts = 100; formatting is non-scored `formatting_quality` verdict), finds closest candidate city, ranks top 6 projects. Score is informational — never blocks: `PROCEED` if ≥85, else `REVIEW` (Step 2 always proceeds).
 
-**Wrapper mode:** Agent reads `okf/project_catalog_condensed.yaml` (21KB, no bullets) directly for project ranking. No subagent spawning — the agent writes ATS_Report.yaml, Job_Description.yaml, and project_info.md itself.
+**Wrapper mode:** `api_pipeline.py step1` reads `okf/project_catalog_condensed.yaml` (21KB, no bullets) + base resume, calls OpenRouter API, writes ATS_Report.yaml, Job_Description.yaml, and project_info.md.
 
-**Compilation:** In wrapper mode, `run_pipeline.sh` compiles `ATS_Report.pdf` and `Job_Description.pdf` after the session ends. Agents do NOT compile PDFs.
+**Compilation:** `run_pipeline.sh` compiles `ATS_Report.pdf` and `Job_Description.pdf` after Step 1 completes. No PDFs compiled by the API call.
 
 **Output:** `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md` in `[Company Name] — [Job Role]/` folder. PDFs compiled by bash.
 
@@ -213,16 +270,16 @@ Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories ×
 
 Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from ATS blueprint + project list. Post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
 
-**Wrapper mode:** Session 2 is a dedicated OMP session launched by bash. The agent reads `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB) instead of the 49KB catalog. The agent writes `Resume.yaml` and updates `ATS_Report.yaml` with `post_rewrite_ats_score` — no compilation.
+**Wrapper mode:** `api_pipeline.py step2` reads `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB) + ATS_Report + JD + base resume, calls OpenRouter API, writes `Resume.yaml` and appends `post_rewrite_ats_score` to `ATS_Report.yaml`. No compilation.
 
-**Compilation:** In wrapper mode, `run_pipeline.sh` compiles the resume (tex → pdflatex ×2 → stamp_photo → parseability → watermark) after the session ends. If parseability fails, bash launches a minimal fix session with just the error + Resume.yaml. Cover letter runs in a separate parallel session (Session 3), also compiled by bash.
+**Compilation:** `run_pipeline.sh` compiles the resume (tex → pdflatex ×2 → stamp_photo → parseability → watermark) after Step 2 completes. If parseability fails, bash calls `api_pipeline.py fix` with the error. Cover letter runs in parallel (Step 3), also compiled by bash.
 
 **Step 2 Hard Constraints (NON-NEGOTIABLE — enforce even if step doc not fully read):**
 - **Project summaries:** Exactly 3 bullets per project, 180-240 chars EN / 160-220 DE, hard 3-line render limit. One outcome + metric per bullet. No padding, no tech-listing.
 - **Technical skills:** JD-relevant only. Do NOT list every technology from every project. Prioritize JD-required skills → core project tools → adjacent strengths. Omit irrelevant technologies even if known.
 - **Project tools field:** 3-5 most JD-relevant tools per project, not every technology from the catalog entry.
 - **Section rule separation:** Never reduce `\titlespacing` after-sep below 4pt (renderer default `\titlespacing{\section}{0pt}{6pt}{4pt}`). Smaller gaps make the `\titlerule` merge with the first content line. Overflow → trim content or enlarge `\vspace`, never reduce after-sep.
-- **Score-Boost Mode (conditional, user-opt-in):** If `ats_score_matrix.total_score` in `ATS_Report.yaml` < 85, the wrapper script asks the user whether to apply score-boosting and injects `score_boost_mode: true` if they opt in. When active, apply measures from `prompts/score_boost.md`: Measures 1-3 (student framing, exact JD phrase weaving, real adjacent streaming/API skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric with matched/unmatched JD term lists) in §5 Post-Rewrite ATS Rescoring. Compilation/verification already covered by existing steps. Anti-hallucination still applies — no fabricating capabilities or metrics. If score ≥ 85 or user declines, skip entirely.
+- **Score-Boost Mode (always on):** Score-boost is always active (`--score-boost yes`). Apply measures from `prompts/score_boost.md`: Measures 1-3 (student framing, exact JD phrase weaving, real adjacent streaming/API skills) in §1 Document Rewrite; Measure 4 (itemized scoring rubric with matched/unmatched JD term lists) in §5 Post-Rewrite ATS Rescoring. Anti-hallucination still applies — no fabricating capabilities or metrics.
 - **No photo stamping in ReportFallback mode:** `stamp_photo.py` is LaTeX-only. Never invoke it for ReportFallback resumes. The `resume.py` dispatcher guards this (`mode == 'latex'`), but agents must not call it manually either.
 - **Page fill — zero empty trailing lines:** Resume must fill exactly one A4 page with content reaching the bottom margin. No empty lines at the end. If 1-2 lines remain empty, fill them with project prose (extra bullet/outcome) or additional technical skills. Half-empty page = FAIL. See `02_resume_and_visual_audit.md` §2.5 Space-Fill Directive.
 - **AI watermark check (mandatory post-compilation):** After compiling the resume PDF, run `check_watermarks.py` on the YAML and PDF. Exit 0 = clean, exit 1 = marks found. If flagged, investigate before proceeding — do NOT submit a resume with AI provenance marks. See `02_resume_and_visual_audit.md` Step E.

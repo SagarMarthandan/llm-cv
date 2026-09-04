@@ -78,6 +78,7 @@ Data-Professional mit M.Sc. Informatik und Produktionserfahrung im Enterprise-Um
 * Verbesserung der Datenintegrität durch CICS-Audits und erweitertes Monitoring zur Messung von Transaktionslatenzen und Erkennung von Fehlern vor dem MQ-Export.
 * Nutzung von Betriebsdaten (SMF, MQ Events) zur Kapazitätsplanung und Modernisierung von Enterprise Data Pipelines – Verbindung von Legacy-ERP-Infrastruktur mit strategischen Dateninitiativen.
 * Automatisierung wiederkehrender CICS- und MQ-Wartungsaufgaben – Reduzierung des Plattform-Overheads um 15%.
+* Leitung eines 5-köpfigen Teams über 2 Jahre, Koordination von Sprint-Lieferungen und Aufgabenverteilung.
 
 **SPRACHEN**
 
@@ -88,3 +89,4 @@ Data-Professional mit M.Sc. Informatik und Produktionserfahrung im Enterprise-Um
 
 * Interdisziplinäre Zusammenarbeit in Agile/SCRUM-Teams
 * ITIL V3 Foundations
+* Projektmanagement (Team Lead, 2 Jahre)

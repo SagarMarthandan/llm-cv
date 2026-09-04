@@ -1,23 +1,23 @@
 #!/bin/bash
 ###############################################################################
-# run_pipeline.sh — llm-cv Bash-Orchestrated Architecture (v3)
+# run_pipeline.sh — llm-cv Direct API Architecture (v4)
 #
-# Flash-model safe: NO subagent spawning. Bash launches simple focused OMP
-# sessions. Each session gets a clear prompt: "read these files, write this
-# YAML, done." Bash handles all parallelism, compilation, and coordination.
+# Replaces OMP agent sessions with direct OpenRouter API calls via
+# api_pipeline.py. 3 API calls total (step1, step2, step3) + optional fix
+# calls. Bash handles all parallelism, compilation, and coordination.
 #
 # Architecture:
-#   Session 1: ATS analysis + JD archival + project ranking (reads condensed catalog)
-#   [bash]     Compile Step 1 PDFs + extract selected projects
-#   [user]     Duplicate check + keyword stuffing + score-boost prompts
-#   Session 2: Resume writer + ATS rescoring (reads selected_projects.yaml)
-#   Session 3: Cover letter writer (parallel with Session 2, reads project_info.md)
-#   [bash]     Compile all PDFs + fix loop + obsidian sync
+#   Step 1: ATS analysis + JD archival + project ranking (direct API call)
+#   [bash]  Compile Step 1 PDFs + extract selected projects
+#   [user]  Duplicate check + keyword stuffing + score-boost prompts
+#   Step 2: Resume writer + ATS rescoring (direct API call, parallel with Step 3)
+#   Step 3: Cover letter writer (direct API call, parallel with Step 2)
+#   [bash]  Compile all PDFs + fix loop + obsidian sync
 #
 # Usage:
 #   ./run_pipeline.sh                          # interactive — prompts for all
 #   ./run_pipeline.sh "paste JD text here"     # pass JD text directly
-#   ./run_pipeline.sh --url "https://..."      # fetch JD from URL (Step 0)
+#   ./run_pipeline.sh --url "https://..."      # fetch JD from URL (Jina Reader)
 #   ./run_pipeline.sh --file jd.txt            # read JD from file
 #
 # Non-interactive (agent mode — all options via CLI flags):
@@ -27,7 +27,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="/home/sagar/Skills/llm-cv"
-OMP="${OMP:-/home/sagar/.local/bin/omp}"
 APPLICATIONS_DIR="/home/sagar/Applications"
 VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python"
 
@@ -57,6 +56,10 @@ OPT_LANGUAGE=""
 OPT_WEAK_TIE=""
 OPT_STUFFING=""
 OPT_SCORE_BOOST=""
+OPT_FORCE=""
+OPT_STAGE=""
+OPT_APP_DIR=""
+OPT_USER_SKILLS=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -66,9 +69,13 @@ while [[ $# -gt 0 ]]; do
         --style)      OPT_STYLE="$2"; shift 2;;
         --source)     OPT_SOURCE="$2"; shift 2;;
         --language)   OPT_LANGUAGE="$2"; shift 2;;
-        --weak-tie)   OPT_WEAK_TIE="$2"; shift 2;;
         --stuffing)   OPT_STUFFING="$2"; shift 2;;
         --score-boost) OPT_SCORE_BOOST="$2"; shift 2;;
+        --stage)      OPT_STAGE="$2"; shift 2;;
+        --app-dir)    OPT_APP_DIR="$2"; shift 2;;
+        --user-skills) OPT_USER_SKILLS="$2"; shift 2;;
+        --force)      OPT_FORCE="1"; shift;;
+        --weak-tie)   OPT_WEAK_TIE="$2"; shift 2;;
         -h|--help)
             head -30 "$0" | tail -27
             exit 0
@@ -85,8 +92,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 ###############################################################################
-# Collect JD text
+# Collect JD text (skip in stage 2 — no JD needed)
 ###############################################################################
+if [[ "$OPT_STAGE" != "2" ]]; then
+
 if [[ -n "$JD_FILE" ]]; then
     [[ -f "$JD_FILE" ]] || die "File not found: $JD_FILE"
     JD_TEXT=$(cat "$JD_FILE")
@@ -159,312 +168,83 @@ echo ""
 log "Selected: render=$render_mode style=$resume_style source=$app_source lang=$language"
 echo ""
 
-###############################################################################
-# Helper: run an OMP session in print mode (foreground)
-###############################################################################
-run_session() {
-    local prompt_file="$1"
-    local session_name="$2"
-    local timeout="${3:-600}"
-
-    log "Launching session: $session_name"
-    timeout "$timeout" "$OMP" -p --auto-approve --cwd "$SCRIPT_DIR" \
-        --skills "llm-cv" \
-        @"$prompt_file" \
-        > "/tmp/llm-cv-${session_name}.log" 2>&1
-
-    local exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-        warn "Session $session_name exited with code $exit_code. Log: /tmp/llm-cv-${session_name}.log"
-        tail -20 "/tmp/llm-cv-${session_name}.log" 2>/dev/null
-        return $exit_code
-    fi
-    ok "Session $session_name completed."
-    return 0
-}
+fi # end JD + First Action block (skipped in stage 2)
 
 ###############################################################################
-# Helper: run an OMP session in background (for parallel execution)
+# Stage 2: use CLI flags for render/style/language (no interactive prompts)
 ###############################################################################
-run_session_bg() {
-    local prompt_file="$1"
-    local session_name="$2"
-    local timeout="${3:-600}"
-
-    log "Launching background session: $session_name" >&2
-    timeout "$timeout" "$OMP" -p --auto-approve --cwd "$SCRIPT_DIR" \
-        --skills "llm-cv" \
-        @"$prompt_file" \
-        > "/tmp/llm-cv-${session_name}.log" 2>&1 &
-    _BG_PID=$!
-}
-
-###############################################################################
-# Bash compilation functions
-###############################################################################
-COMPILE_ERROR=""
-COMPILE_LOG=""
-
-compile_step1_pdfs() {
-    local app_dir="$1"
-    cd "$app_dir"
-    set +e
-    "$VENV_PYTHON" "$SCRIPT_DIR/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf" 2>&1
-    local r1=$?
-    "$VENV_PYTHON" "$SCRIPT_DIR/yaml_to_pdf.py" "Job_Description.yaml" "Job_Description.pdf" 2>&1
-    local r2=$?
-    set -e
-    if [[ $r1 -ne 0 ]]; then
-        warn "ATS_Report.pdf compilation failed (exit $r1)"
-    fi
-    if [[ $r2 -ne 0 ]]; then
-        warn "Job_Description.pdf compilation failed (exit $r2)"
-    fi
-}
-
-get_resume_filenames() {
-    local language="$1"
-    if [[ "$language" == "German" ]]; then
-        RESUME_PDF="SAGAR_MARTHANDAN_Lebenslauf.pdf"
-        RESUME_TEX="SAGAR_MARTHANDAN_Lebenslauf.tex"
-    else
-        RESUME_PDF="SAGAR_MARTHANDAN_Resume.pdf"
-        RESUME_TEX="SAGAR_MARTHANDAN_Resume.tex"
-    fi
-}
-
-get_cover_letter_filename() {
-    local language="$1"
-    if [[ "$language" == "German" ]]; then
-        CL_PDF="SAGAR_MARTHANDAN_Anschreiben.pdf"
-    else
-        CL_PDF="SAGAR_MARTHANDAN_Cover_Letter.pdf"
-    fi
-}
-
-compile_resume() {
-    local app_dir="$1"
-    local language="$2"
-    local render_mode="$3"
-
-    get_resume_filenames "$language"
-    cd "$app_dir"
-    COMPILE_ERROR=""
-    COMPILE_LOG=""
-    set +e
-
-    if [[ "$render_mode" == "latex" ]]; then
-        # Step A: Generate .tex
-        "$VENV_PYTHON" "$SCRIPT_DIR/yaml_to_pdf.py" "Resume.yaml" "$RESUME_PDF" --tex-only > /tmp/llm-cv-compile.log 2>&1
-        if [[ $? -ne 0 ]]; then
-            COMPILE_ERROR="yaml_to_pdf --tex-only failed"
-            COMPILE_LOG=$(cat /tmp/llm-cv-compile.log)
-            set -e; return 1
-        fi
-
-        # Step B: Check tex (char counts)
-        "$VENV_PYTHON" "$SCRIPT_DIR/resume_parseability.py" --check-tex "$RESUME_TEX" > /tmp/llm-cv-compile.log 2>&1
-        if [[ $? -ne 0 ]]; then
-            COMPILE_ERROR="check-tex failed (char count violations)"
-            COMPILE_LOG=$(cat /tmp/llm-cv-compile.log)
-            set -e; return 1
-        fi
-
-        # Step C: Double pdflatex
-        pdflatex -interaction=nonstopmode "$RESUME_TEX" > /dev/null 2>&1
-        pdflatex -interaction=nonstopmode "$RESUME_TEX" > /dev/null 2>&1
-
-        # Stamp photo
-        "$VENV_PYTHON" "$SCRIPT_DIR/stamp_photo.py" "$RESUME_PDF" "Resume.yaml" > /tmp/llm-cv-compile.log 2>&1
-        if [[ $? -ne 0 ]]; then
-            warn "stamp_photo.py returned non-zero — photo may be missing"
-        fi
-    else
-        # ReportFallback: single compile, no photo stamp
-        "$VENV_PYTHON" "$SCRIPT_DIR/yaml_to_pdf.py" "Resume.yaml" "$RESUME_PDF" > /tmp/llm-cv-compile.log 2>&1
-        if [[ $? -ne 0 ]]; then
-            COMPILE_ERROR="yaml_to_pdf (ReportFallback) failed"
-            COMPILE_LOG=$(cat /tmp/llm-cv-compile.log)
-            set -e; return 1
-        fi
-    fi
-
-    # Step D: Parseability audit
-    "$VENV_PYTHON" "$SCRIPT_DIR/resume_parseability.py" "$RESUME_PDF" "Resume.yaml" > /tmp/llm-cv-parse.log 2>&1
-    if [[ $? -ne 0 ]]; then
-        COMPILE_ERROR="parseability audit failed"
-        COMPILE_LOG=$(cat /tmp/llm-cv-parse.log)
-        set -e; return 1
-    fi
-
-    # Step E: Watermark check (non-critical)
-    "$VENV_PYTHON" "$SCRIPT_DIR/check_watermarks.py" "Resume.yaml" "$RESUME_PDF" > /tmp/llm-cv-watermark.log 2>&1
-    if [[ $? -ne 0 ]]; then
-        warn "AI watermark check returned non-zero exit — investigate before submitting"
-        warn "See /tmp/llm-cv-watermark.log"
-    fi
-
-    # Recompile ATS report with post-rewrite scores
-    "$VENV_PYTHON" "$SCRIPT_DIR/yaml_to_pdf.py" "ATS_Report.yaml" "ATS_Report.pdf" > /dev/null 2>&1
-
-    set -e
-    ok "Resume compiled: $RESUME_PDF"
-    return 0
-}
-
-compile_cover_letter() {
-    local app_dir="$1"
-    local language="$2"
-
-    get_cover_letter_filename "$language"
-    cd "$app_dir"
-    set +e
-
-    "$VENV_PYTHON" "$SCRIPT_DIR/yaml_to_pdf.py" "Cover_Letter.yaml" "$CL_PDF" > /tmp/llm-cv-cl-compile.log 2>&1
-    if [[ $? -ne 0 ]]; then
-        warn "Cover letter compilation failed. See /tmp/llm-cv-cl-compile.log"
-        set -e; return 1
-    fi
-
-    "$VENV_PYTHON" "$SCRIPT_DIR/check_watermarks.py" "Cover_Letter.yaml" "$CL_PDF" > /tmp/llm-cv-cl-watermark.log 2>&1
-    if [[ $? -ne 0 ]]; then
-        warn "Cover letter watermark check returned non-zero — investigate"
-    fi
-
-    set -e
-    ok "Cover letter compiled: $CL_PDF"
-    return 0
-}
-
-generate_layout_audit() {
-    local app_dir="$1"
-    local resume_pdf="$2"
-    local parse_status="Pass"
-    local fill_status="Pass"
-    local page_count=""
-
-    # Check page count
-    page_count=$("$VENV_PYTHON" -c "
-from pypdf import PdfReader
-try:
-    r = PdfReader('$resume_pdf')
-    print(len(r.pages))
-except:
-    print('error')
-" 2>/dev/null || echo "error")
-
-    if [[ "$page_count" != "1" ]]; then
-        fill_status="Fail"
-    fi
-
-    # Check if parseability report exists and passed
-    if [[ -f "$app_dir/Parseability_Report.yaml" ]]; then
-        local parse_pass=$("$VENV_PYTHON" -c "
-import yaml
-with open('$app_dir/Parseability_Report.yaml') as f:
-    d = yaml.safe_load(f)
-s = d.get('overall_status', d.get('status', ''))
-print('Pass' if 'pass' in str(s).lower() else 'Fail')
-" 2>/dev/null || echo "Fail")
-        parse_status="$parse_pass"
-    fi
-
-    cat > "$app_dir/Layout_Audit_Report.yaml" << EOF
-type: layout_audit_report
-eye_test_diagnostics:
-  page_fill_density:
-    status: "$fill_status"
-    feedback: "Page count: $page_count (expected: 1)"
-  parseability:
-    status: "$parse_status"
-    feedback: "From resume_parseability.py"
-  watermark_check:
-    status: "Pass"
-    feedback: "From check_watermarks.py"
-direct_visual_refactoring_actions: []
-optimized_v2_generated: false
-EOF
-}
-
-###############################################################################
-# Session 1: ATS Analysis + JD Archival + Project Ranking
-# Agent reads condensed catalog directly (21KB is fine for flash models).
-# No subagent spawning — the agent does everything itself.
-###############################################################################
-log "=== Session 1: ATS Analysis & JD Archival + Project Ranking ==="
-
-STEP1_PROMPT=$(mktemp /tmp/llm-cv-step1-prompt-XXXXXX.md)
-cat > "$STEP1_PROMPT" << 'PROMPT_HEAD'
-Run the llm-cv pipeline Step 1 ONLY. Do NOT proceed to Step 2 or Step 3.
-
-Read skill://llm-cv (SKILL.md) and 01_ats_and_jd_archival.md for full instructions.
-
-First Action answers (already collected — do NOT use the ask tool):
-PROMPT_HEAD
-
-cat >> "$STEP1_PROMPT" << EOF
-- render_mode: $render_mode
-- resume_style: $resume_style
-- application_source: "$app_source"
-- language: "$language"
-EOF
-
-if [[ -n "$weak_tie_contact" ]]; then
-    echo "- weak_tie_contact: \"$weak_tie_contact\"" >> "$STEP1_PROMPT"
+if [[ "$OPT_STAGE" == "2" ]]; then
+    [[ -n "$OPT_APP_DIR" && -f "$OPT_APP_DIR/ATS_Report.yaml" ]] || die "Stage 2 requires --app-dir with valid ATS_Report.yaml"
+    APP_DIR="$OPT_APP_DIR"
+    render_mode="${OPT_RENDER:-latex}"
+    resume_style="${OPT_STYLE:-german}"
+    language="${OPT_LANGUAGE:-English}"
+    app_source="${OPT_SOURCE:-Cold Apply}"
+    weak_tie_contact="$OPT_WEAK_TIE"
+    ok "Stage 2: resuming from $APP_DIR"
 fi
 
+
+###############################################################################
+# api_pipeline.py — direct OpenRouter API calls (replaces OMP sessions)
+###############################################################################
+API_PY="$VENV_PYTHON $SCRIPT_DIR/api_pipeline.py"
+
+###############################################################################
+# Source compilation functions from lib/compile.sh
+###############################################################################
+source "$SCRIPT_DIR/lib/compile.sh"
+
+###############################################################################
+# Step 1: ATS Analysis + JD Archival + Project Ranking (direct API call)
+# Skipped in stage 2 (app-dir already exists from stage 1)
+###############################################################################
+if [[ "$OPT_STAGE" != "2" ]]; then
+
+###############################################################################
+log "=== Step 1: ATS Analysis & JD Archival + Project Ranking (direct API) ==="
+
+# Handle URL fetch first (replaces Step 0 agent session)
 if [[ "$JD_TEXT" == __JD_URL__:* ]]; then
     URL="${JD_TEXT#__JD_URL__:}"
-    cat >> "$STEP1_PROMPT" << EOF
-
-The user provided a URL: $URL
-First read 00_jd_fetch.md and fetch the JD from this URL, then proceed with Step 1.
-EOF
-else
-    cat >> "$STEP1_PROMPT" << 'EOF'
-
-Job Description (pasted by user):
----
-EOF
-    cat "$JD_TEMP" >> "$STEP1_PROMPT"
-    echo "---" >> "$STEP1_PROMPT"
+    log "Fetching JD from URL: $URL"
+    JD_FETCHED=$($API_PY fetch --url "$URL" 2>/tmp/llm-cv-fetch.log)
+    if [[ $? -ne 0 || -z "$JD_FETCHED" ]]; then
+        die "Failed to fetch JD from URL. See /tmp/llm-cv-fetch.log. Please paste JD text manually."
+    fi
+    JD_TEXT="$JD_FETCHED"
+    echo "$JD_TEXT" > "$JD_TEMP"
+    log "JD fetched (${#JD_TEXT} chars)"
 fi
 
-cat >> "$STEP1_PROMPT" << 'EOF'
+# Run Step 1 via direct API call
+STEP1_OUTPUT=$($API_PY step1 \
+    --jd-file "$JD_TEMP" \
+    --render "$render_mode" \
+    --style "$resume_style" \
+    --source "$app_source" \
+    --language "$language" \
+    ${weak_tie_contact:+--weak-tie "$weak_tie_contact"} \
+    2>/tmp/llm-cv-step1.log)
 
-Execute Step 1 completely:
-1. Create the application folder /home/sagar/Applications/[Company Name] — [Job Role]/
-2. Write ATS_Report.yaml and Job_Description.yaml to that folder
-3. Store all First Action answers in ATS_Report.yaml
-4. Rank top 6 projects: read okf/project_catalog_condensed.yaml (15 projects, no bullets — 21KB).
-   Rank by technology overlap, transferable skills, business-problem match, archetype fit,
-   complexity/seniority, reframing potential.
-5. Write project_info.md to the application folder (format in 01_ats_and_jd_archival.md)
-6. Run the post-ranking validation script to verify all 6 project titles match the catalog
+STEP1_EXIT=$?
+if [[ $STEP1_EXIT -ne 0 ]]; then
+    warn "Step 1 API call failed (exit $STEP1_EXIT). Log: /tmp/llm-cv-step1.log"
+    tail -30 /tmp/llm-cv-step1.log 2>/dev/null
+    die "Step 1 failed."
+fi
 
-Do NOT compile any PDFs — compilation is handled by the wrapper script after you finish.
-Do NOT ask any questions — all answers are provided above.
-Do NOT proceed to Step 2. This session handles Step 1 only.
-When you are done, print: "STEP 1 COMPLETE"
-EOF
-
-run_session "$STEP1_PROMPT" "step1" 600 || true
-rm -f "$STEP1_PROMPT"
+# The last line of output is the app dir
+APP_DIR=$(echo "$STEP1_OUTPUT" | tail -1)
 
 ###############################################################################
-# Find the application folder (created by Step 1)
+# Verify Step 1 outputs
 ###############################################################################
-log "Locating Step 1 outputs..."
-APP_DIR=""
+log "Verifying Step 1 outputs..."
 
-# Find the most recently created ATS_Report.yaml (handles paths with spaces)
-while IFS= read -r f; do
-    APP_DIR=$(dirname "$f")
-    break
-done < <(find "$APPLICATIONS_DIR" -name "ATS_Report.yaml" -newer "$JD_TEMP" 2>/dev/null | sort -r)
-
+# If APP_DIR wasn't captured from step1 output, try to find it
 if [[ -z "$APP_DIR" || ! -f "$APP_DIR/ATS_Report.yaml" ]]; then
-    # Fallback: find most recent ATS_Report.yaml anywhere in Applications
+    # Fallback: find most recent ATS_Report.yaml in Applications
     while IFS= read -r line; do
         APP_DIR=$(dirname "$line")
         break
@@ -494,6 +274,36 @@ else
     warn "project_info.md not found — Step 2 will use full catalog"
 fi
 
+fi # end Step 1 block (skipped in stage 2)
+
+
+###############################################################################
+# Stage 1 exit: print app dir + skill gaps for agent to ask user about stuffing
+###############################################################################
+if [[ "$OPT_STAGE" == "1" ]]; then
+    SKILL_GAPS=$("$VENV_PYTHON" -c "
+import yaml
+with open('$APP_DIR/ATS_Report.yaml') as f:
+    data = yaml.safe_load(f)
+gaps = data.get('skill_gaps', [])
+print(', '.join(gaps) if gaps else '(none)')
+" 2>/dev/null || echo "(unable to read)")
+
+    INITIAL_ATS_SCORE=$("$VENV_PYTHON" -c "
+import yaml
+with open('$APP_DIR/ATS_Report.yaml') as f:
+    data = yaml.safe_load(f)
+score = data.get('ats_score_matrix', {}).get('total_score', 0)
+print(score)
+" 2>/dev/null || echo "0")
+
+    echo "APP_DIR:$APP_DIR"
+    echo "SKILL_GAPS:$SKILL_GAPS"
+    echo "ATS_SCORE:$INITIAL_ATS_SCORE"
+    ok "Stage 1 complete. Agent should ask user about keyword stuffing, then run --stage 2."
+    exit 0
+fi
+
 ###############################################################################
 # Duplicate Application Check (before resume rewrite)
 ###############################################################################
@@ -503,7 +313,7 @@ DUP_OUTPUT=$("$VENV_PYTHON" "$SCRIPT_DIR/check_duplicate_application.py" "$APP_D
 DUP_EXIT=$?
 set -e
 
-if [[ "$DUP_EXIT" -ne 0 ]]; then
+if [[ "$DUP_EXIT" -ne 0 && -z "$OPT_FORCE" ]]; then
     echo ""
     warn "$DUP_OUTPUT"
     echo ""
@@ -531,6 +341,8 @@ if [[ "$DUP_EXIT" -ne 0 ]]; then
             fi
             ;;
     esac
+elif [[ "$DUP_EXIT" -ne 0 && -n "$OPT_FORCE" ]]; then
+    warn "Duplicate application detected but --force set, proceeding anyway."
 else
     ok "No prior applications found for this company + role."
 fi
@@ -562,18 +374,20 @@ else
 fi
 
 keyword_stuffing="false"
-user_directed_skills=""
+user_directed_skills="$OPT_USER_SKILLS"
 
 case "$stuffing_choice" in
-    "Add all")
+    "Add all"|"all")
         keyword_stuffing="true"
         ;;
-    "Selective")
+    "Selective"|"selective")
         keyword_stuffing="true"
-        echo -n "Which skills to add (comma-separated): "
-        read user_directed_skills
+        if [[ -z "$user_directed_skills" ]]; then
+            echo -n "Which skills to add (comma-separated): "
+            read user_directed_skills
+        fi
         ;;
-    "No stuffing")
+    "No stuffing"|"none")
         keyword_stuffing="false"
         ;;
 esac
@@ -591,170 +405,59 @@ score = data.get('ats_score_matrix', {}).get('total_score', 0)
 print(score)
 " 2>/dev/null || echo "0")
 
-score_boost_mode="false"
+score_boost_mode="true"
 
-if [[ "$INITIAL_ATS_SCORE" -lt 85 ]]; then
-    echo ""
-    warn "Initial ATS score: $INITIAL_ATS_SCORE (< 85)"
-    echo ""
-    echo "Score-Boost Mode can improve the resume by applying these measures:"
-    echo "  1. Student Framing — lead summary with 'M.Sc. student in [field] and [archetype]'"
-    echo "     for intern/student roles (if applicable)"
-    echo "  2. Exact JD Phrase Weaving — weave distinctive JD verb phrases into truthful"
-    echo "     bullet prose (e.g. 'data transformation workflows', 'SQL stored procedures')"
-    echo "  3. Real Adjacent Skills — re-add streaming/API skills (Kafka, Redis, REST APIs)"
-    echo "     if JD demands bots/automation and base resume has them"
-    if [[ -n "$OPT_SCORE_BOOST" ]]; then
-        case "$OPT_SCORE_BOOST" in
-            yes|true|auto)
-                score_boost_mode="true"
-                ok "Score-Boost Mode ACTIVATED (from --score-boost $OPT_SCORE_BOOST)"
-                ;;
-            no|false)
-                score_boost_mode="false"
-                ok "Score-Boost Mode skipped (from --score-boost no)"
-                ;;
-        esac
-    else
-        PS3="Apply Score-Boost Mode? (1-2): "
-        select boost_choice in "Yes — apply score-boosting measures" "No — proceed with standard rewrite"; do break; done
-
-        case "$boost_choice" in
-            "Yes — apply score-boosting measures")
-                score_boost_mode="true"
-                ok "Score-Boost Mode ACTIVATED"
-                ;;
-            *)
-                score_boost_mode="false"
-                ok "Score-Boost Mode skipped — proceeding with standard rewrite"
-                ;;
-        esac
-    fi
+if [[ -n "$OPT_SCORE_BOOST" ]]; then
+    case "$OPT_SCORE_BOOST" in
+        no|false)
+            score_boost_mode="false"
+            ok "Score-Boost Mode skipped (from --score-boost no)"
+            ;;
+        *)
+            ok "Score-Boost Mode ACTIVATED (from --score-boost $OPT_SCORE_BOOST)"
+            ;;
+    esac
 else
-    ok "Initial ATS score: $INITIAL_ATS_SCORE (≥ 85) — Score-Boost Mode not needed"
-fi
-
-echo ""
-
-###############################################################################
-# Determine language dir for base files
-###############################################################################
-if [[ "$language" == "German" ]]; then
-    LANG_DIR="german"
-else
-    LANG_DIR="english"
+    ok "Score-Boost Mode ACTIVATED (always on by default)"
 fi
 
 ###############################################################################
-# Session 2: Resume Writer + ATS Rescoring
-# Simple prompt: read files, write Resume.yaml, update ATS_Report.yaml. No subagents.
+# Step 2 + Step 3: Resume Writer + Cover Letter (parallel direct API calls)
 ###############################################################################
-log "=== Session 2: Resume Writer + ATS Rescoring ==="
+log "=== Step 2: Resume Writer + ATS Rescoring (direct API) ==="
+log "=== Step 3: Cover Letter Writer (parallel with Step 2) ==="
 
-RESUME_PROMPT=$(mktemp /tmp/llm-cv-resume-prompt-XXXXXX.md)
-cat > "$RESUME_PROMPT" << EOF
-Run the llm-cv pipeline Step 2 ONLY. Write a resume YAML file.
+# Map stuffing choice to api_pipeline.py format
+stuffing_arg="none"
+case "$stuffing_choice" in
+    "Add all")    stuffing_arg="all" ;;
+    "Selective")  stuffing_arg="selective" ;;
+    *)            stuffing_arg="none" ;;
+esac
 
-Read skill://llm-cv (SKILL.md) and 02_resume_and_visual_audit.md for full instructions.
+# Launch Step 2 and Step 3 in parallel via bash backgrounding
+$API_PY step2 \
+    --app-dir "$APP_DIR" \
+    --render "$render_mode" \
+    --style "$resume_style" \
+    --language "$language" \
+    --stuffing "$stuffing_arg" \
+    --user-skills "$user_directed_skills" \
+    --score-boost "$score_boost_mode" \
+    --initial-score "$INITIAL_ATS_SCORE" \
+    > /tmp/llm-cv-step2.log 2>&1 &
+RESUME_PID=$!
 
-Application folder: $APP_DIR
+$API_PY step3 \
+    --app-dir "$APP_DIR" \
+    --render "$render_mode" \
+    --language "$language" \
+    > /tmp/llm-cv-step3.log 2>&1 &
+CL_PID=$!
 
-First Action answers (already collected — do NOT use the ask tool):
-- render_mode: $render_mode
-- resume_style: $resume_style
-- language: "$language"
-- keyword_stuffing: $keyword_stuffing
-- user_directed_skills: "$user_directed_skills"
-- score_boost_mode: $score_boost_mode
-- initial_ats_score: $INITIAL_ATS_SCORE
+log "Waiting for Step 2 (PID $RESUME_PID) and Step 3 (PID $CL_PID) API calls..."
 
-Read these files from the application folder:
-- ATS_Report.yaml (improvement_blueprint, role_archetype, skill_gaps, closest_candidate_location)
-- selected_projects.yaml (6 ranked projects with full bullets — use this INSTEAD of the full catalog)
-- Job_Description.yaml (for JD references — do NOT re-paste raw JD)
-- okf/base_files/$LANG_DIR/resume_*.md (base resume — detect archetype from ATS_Report.yaml role_archetype)
-EOF
-
-if [[ "$score_boost_mode" == "true" ]]; then
-    echo "- prompts/score_boost.md (Score-Boost measures — apply Measures 1-3 during rewrite)" >> "$RESUME_PROMPT"
-fi
-
-cat >> "$RESUME_PROMPT" << 'EOF'
-
-Write Resume.yaml to the application folder following the schema in 02_resume_and_visual_audit.md.
-
-Key constraints (NON-NEGOTIABLE):
-- Exactly 3 bullets per project, 180-240 chars EN / 160-220 DE, hard 3-line render limit
-- Summary: 2 lines, ≤200 chars EN / ≤170 DE, no tool names
-- Experience bullets: ≤105 chars, 1 line each
-- JD-relevant technical skills only (anti-stuffing)
-- Project tools: 3-5 most JD-relevant per project
-- Anti-hallucination: only projects from selected_projects.yaml, metrics from catalog key_metrics
-- Stop-slop: active voice, no -ly adverbs, no em-dashes (except --- separators)
-- Font rule: LaTeX uses lmodern, never patch preamble
-- Page fill: must fill exactly 1 A4 page, zero empty trailing lines
-
-After writing Resume.yaml, do the Post-Rewrite ATS Rescoring (§5 of 02_resume_and_visual_audit.md):
-- Re-run the 4-category ATS matrix (25pts each, 100 total) on the final resume
-- Write the post_rewrite_ats_score block to ATS_Report.yaml (APPEND, do NOT overwrite the pre-rewrite section)
-- Calculate score_delta and set score_gate_verdict (PROCEED/HOLD)
-
-Do NOT compile any PDFs. Just write Resume.yaml and update ATS_Report.yaml.
-Do NOT ask any questions — all answers are provided above.
-When you are done, print: "STEP 2 COMPLETE"
-EOF
-
-###############################################################################
-# Session 3: Cover Letter Writer (runs in parallel with Session 2)
-# Simple prompt: read files, write Cover_Letter.yaml. No subagents.
-###############################################################################
-log "=== Session 3: Cover Letter Writer (parallel with Session 2) ==="
-
-CL_PROMPT=$(mktemp /tmp/llm-cv-cl-prompt-XXXXXX.md)
-cat > "$CL_PROMPT" << EOF
-Run the llm-cv pipeline Step 3 ONLY. Write a cover letter YAML file.
-
-Read skill://llm-cv (SKILL.md) and 03_cover_letter.md for full instructions.
-
-Application folder: $APP_DIR
-
-Read these files from the application folder:
-- ATS_Report.yaml (render_mode, language, closest_candidate_location, application_source, weak_tie_contact, role_archetype)
-- Job_Description.yaml (company, position, JD sections)
-- project_info.md (tailored project list with metrics)
-
-First Action answers (already collected — do NOT use the ask tool):
-- render_mode: $render_mode
-- language: "$language"
-
-Write Cover_Letter.yaml to the application folder following the schema in 03_cover_letter.md.
-
-Key constraints:
-- Geschäftsbrief layout, max 4 paragraphs
-- English: 250-320 words / German: 180-240 words (single A4 page)
-- Ground tech skills in metrics from project_info.md
-- No resume rehash — cover letter carries info the resume does not
-- Integrate B1 German studies + GitHub portfolio
-- Archetype-conditional: only mention LLMs/RAG for AI archetypes
-- Anti-hallucination: metrics from project_info.md or catalog, no fabrication
-- Stop-slop: active voice, no -ly adverbs, no em-dashes
-
-Do NOT compile any PDFs. Just write Cover_Letter.yaml.
-Do NOT ask any questions — all answers are provided above.
-When you are done, print: "STEP 3 COMPLETE"
-EOF
-
-###############################################################################
-# Launch Session 2 and Session 3 in parallel (bash handles parallelism)
-###############################################################################
-run_session_bg "$RESUME_PROMPT" "resume" 900
-RESUME_PID=$_BG_PID
-run_session_bg "$CL_PROMPT" "coverletter" 600
-CL_PID=$_BG_PID
-
-log "Waiting for resume (PID $RESUME_PID) and cover letter (PID $CL_PID) sessions..."
-
-# Wait for both — use `wait` with set +e so one failure doesn't kill the other
+# Wait for both — use set +e so one failure doesn't kill the other
 set +e
 wait "$RESUME_PID"
 RESUME_EXIT=$?
@@ -762,21 +465,19 @@ wait "$CL_PID"
 CL_EXIT=$?
 set -e
 
-rm -f "$RESUME_PROMPT" "$CL_PROMPT"
-
 if [[ $RESUME_EXIT -ne 0 ]]; then
-    warn "Resume session exited with code $RESUME_EXIT. Log: /tmp/llm-cv-resume.log"
-    warn "Continuing to compilation — check if Resume.yaml was written."
+    warn "Step 2 API call failed (exit $RESUME_EXIT). Log: /tmp/llm-cv-step2.log"
+    tail -20 /tmp/llm-cv-step2.log 2>/dev/null
 fi
 
 if [[ $CL_EXIT -ne 0 ]]; then
-    warn "Cover letter session exited with code $CL_EXIT. Log: /tmp/llm-cv-coverletter.log"
-    warn "Continuing — cover letter may be missing."
+    warn "Step 3 API call failed (exit $CL_EXIT). Log: /tmp/llm-cv-step3.log"
+    tail -20 /tmp/llm-cv-step3.log 2>/dev/null
 fi
 
 # Check outputs
 if [[ ! -f "$APP_DIR/Resume.yaml" ]]; then
-    die "Resume.yaml not found. Resume session failed. Check /tmp/llm-cv-resume.log"
+    die "Resume.yaml not found. Step 2 failed. Check /tmp/llm-cv-step2.log"
 fi
 ok "Resume.yaml found"
 
@@ -808,31 +509,14 @@ while true; do
         break
     fi
 
-    log "Resume compilation failed: $COMPILE_ERROR. Launching fix session $fix_attempt..."
+    log "Resume compilation failed: $COMPILE_ERROR. Running fix pass $fix_attempt via API..."
 
-    FIX_PROMPT=$(mktemp /tmp/llm-cv-fix-prompt-XXXXXX.md)
-    cat > "$FIX_PROMPT" << EOF
-Resume compilation failed. Fix the YAML file.
-
-Application folder: $APP_DIR
-Error: $COMPILE_ERROR
-
-Error output:
-$(echo "$COMPILE_LOG" | head -50)
-
-Read $APP_DIR/Resume.yaml and fix the issue that caused the failure.
-Common fixes for parseability: de-parenthesize skill strings, remove commas/special characters that pypdf splits, adjust wording.
-Common fixes for check-tex: adjust char counts to meet limits (summary ≤200/170, bullets 180-240/160-220, experience ≤105).
-Common fixes for pdflatex: reduce content to fit 1 page, or add content if under-filled.
-
-Read 02_resume_and_visual_audit.md for full constraints.
-
-Do NOT compile. Just fix Resume.yaml and return.
-When you are done, print: "FIX COMPLETE"
-EOF
-
-    run_session "$FIX_PROMPT" "fix-$fix_attempt" 300 || true
-    rm -f "$FIX_PROMPT"
+    FIX_ERROR_MSG="$COMPILE_ERROR: $(echo "$COMPILE_LOG" | head -20)"
+    $API_PY fix \
+        --app-dir "$APP_DIR" \
+        --error "$FIX_ERROR_MSG" \
+        --language "$language" \
+        > /tmp/llm-cv-fix-$fix_attempt.log 2>&1 || true
 done
 
 # Generate layout audit report from compilation results
@@ -865,6 +549,15 @@ if [[ -f "$APP_DIR/Cover_Letter.yaml" ]]; then
     fi
     set -e
     ok "Obsidian sync complete"
+
+    # Update APP_DIR if the folder was moved by --sort
+    if [[ ! -d "$APP_DIR" ]]; then
+        NEW_DIR=$(find "$APPLICATIONS_DIR" -name "$(basename "$APP_DIR")" -type d 2>/dev/null | head -1)
+        if [[ -n "$NEW_DIR" && -d "$NEW_DIR" ]]; then
+            APP_DIR="$NEW_DIR"
+            ok "Application folder moved to: $APP_DIR"
+        fi
+    fi
 else
     warn "Skipping Obsidian sync — cover letter not generated"
 fi
@@ -881,7 +574,7 @@ ls -la "$APP_DIR"/*.pdf "$APP_DIR"/*.yaml "$APP_DIR"/*.md 2>/dev/null | awk '{pr
 set -e
 
 # Cleanup
-rm -f "$JD_TEMP" /tmp/llm-cv-compile.log /tmp/llm-cv-parse.log /tmp/llm-cv-watermark.log /tmp/llm-cv-cl-compile.log /tmp/llm-cv-cl-watermark.log
+rm -f "${JD_TEMP:-/tmp/llm-cv-jd-NONE.txt}" /tmp/llm-cv-compile.log /tmp/llm-cv-parse.log /tmp/llm-cv-watermark.log /tmp/llm-cv-cl-compile.log /tmp/llm-cv-cl-watermark.log
 
 echo ""
 
