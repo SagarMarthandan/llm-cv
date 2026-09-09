@@ -563,6 +563,17 @@ else
 fi
 
 ###############################################################################
+# Bash: Append to applications tracker CSV
+###############################################################################
+log "=== Applications Tracker ==="
+set +e
+"$VENV_PYTHON" "$SCRIPT_DIR/track_applications.py" --append "$APP_DIR" 2>&1
+if [[ $? -ne 0 ]]; then
+    warn "Applications tracker append failed (non-critical)."
+fi
+set -e
+
+###############################################################################
 # Verify completion
 ###############################################################################
 echo ""

@@ -1,6 +1,20 @@
-# Changelog
+## v4.1.0 — 2026-09-09
+
+### Added
+
+- **Application tracker CSV (`track_applications.py`):** New script that collects all applications from the Applications folder and Obsidian vault, matches them, and writes a CSV tracker at `~/Documents/applications_tracker.csv`. 19 columns: Date, Company, Position, Location, Role Archetype, ATS Pre-Score, ATS Post-Score, Score Delta, Score Gate, Application Source, ATS Vendor, Language, Resume Style, Source URL, Job Ref, Skill Gaps, Projects Used, In Obsidian (sync status), Folder Path. Two modes: `--rebuild` (full scan + match + write) and `--append <dir>` (single application update). UTF-8-sig encoding for spreadsheet compatibility.
+- **Pipeline integration:** `track_applications.py --append` runs automatically after the Obsidian sync in `run_pipeline.sh` Stage 2. Non-blocking — failures produce a warning, not a pipeline exit.
+- **Sync mismatch reporting:** The `--rebuild` mode reports applications not in Obsidian (sync issues) and orphaned Obsidian notes without matching application folders. Two-pass matching: date+company first, then company-only across all notes (handles notes without date suffixes).
+
+### Files Modified
+
+- `track_applications.py` — new file (~500 lines). Application folder scanner, YAML parser (ATS_Report + Job_Description + Resume), Obsidian note matcher, CSV writer.
+- `run_pipeline.sh` — added tracker call after Obsidian sync block (line 564).
+- `README.md` — added Application Tracking section, updated pipeline flow diagram, added file structure entry.
+- `docs/CHANGELOG.md` — v4.1.0 entry added.
 
 ## v4.0.0 — 2026-09-04
+
 
 ### Added
 

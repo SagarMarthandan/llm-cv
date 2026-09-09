@@ -24,7 +24,7 @@ User says "llm-cv" + JD (URL, file, or pasted text)
             │
             ├── Step 2 API call: Resume writer + ATS rescoring (reads 7KB selected_projects.yaml)  ┐ parallel
             ├── Step 3 API call: Cover letter writer (reads project_info.md)                       ┘
-            └── [bash] Compile all PDFs + fix loop + photo stamp + watermark check + Obsidian sync
+            └── [bash] Compile all PDFs + fix loop + photo stamp + watermark check + Obsidian sync + CSV tracker
 ```
 
 3 API calls total (+ optional fix calls). Model: qwen/qwen3.8-flash with reasoning disabled. Cost: ~$0.01/run. Time: ~1-2 min/run.
@@ -195,6 +195,25 @@ Before the resume rewrite, `check_duplicate_application.py` searches the Obsidia
 - **Options:** Proceed (rewrite anyway), Abort (stop), Reuse prior resume (copy as Step 2 starting point)
 - **Non-interactive:** Pass `--force` to skip the interactive prompt (required for agent-launched stage 2)
 
+
+## Application Tracking
+
+Every pipeline run appends the application to a CSV tracker at `~/Documents/applications_tracker.csv` via `track_applications.py`. The script runs automatically after the Obsidian sync in Stage 2.
+
+**19 columns:** Date, Company, Position, Location, Role Archetype, ATS Pre-Score, ATS Post-Score, Score Delta, Score Gate, Application Source, ATS Vendor, Language, Resume Style, Source URL, Job Ref, Skill Gaps, Projects Used, In Obsidian (sync status), Folder Path.
+
+```bash
+# Full rebuild (scan all applications + Obsidian vault, match, write CSV)
+.venv/bin/python track_applications.py --rebuild
+
+# Append/update a single application (used by pipeline)
+.venv/bin/python track_applications.py --append "/home/sagar/Applications/2026/09/08/Company — Role"
+
+# Dry run (show what would be written)
+.venv/bin/python track_applications.py --rebuild --dry-run
+```
+
+
 ## Project Catalog
 
 `okf/project_catalog.yaml` — single source of truth. 15 projects, each with title, description, business_problem, key_metrics, transferable_skills, technologies, archetypes, repo_url, bullets (8-10), keywords.
@@ -223,7 +242,7 @@ llm-cv/
 ├── sync_to_obsidian.py               # Obsidian sync entry point
 ├── check_watermarks.py               # AI watermark/provenance check
 ├── check_duplicate_application.py    # Duplicate application detection
-├── track_outcomes.py                 # Outcome tracking
+├── track_applications.py              # Application tracker CSV (~/Documents/applications_tracker.csv)
 ├── okf_diversity_audit.py            # Weekly diversity audit (standalone)
 ├── renderers/                        # 14 LaTeX + ReportLab renderers
 ├── okf/
