@@ -28,6 +28,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
+from tqdm import tqdm
 
 try:
     import yaml
@@ -637,7 +638,8 @@ def sync(dry_run: bool = False, verbose: bool = False) -> None:
         print(f"Found {len(app_folders)} application folders")
 
     applications = []
-    for folder in app_folders:
+    for folder in tqdm(app_folders, desc="Parsing applications", unit="app",
+                       file=sys.stderr, leave=False):
         app = parse_application(folder)
         if app:
             applications.append(app)

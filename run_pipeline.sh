@@ -208,7 +208,7 @@ log "=== Step 1: ATS Analysis & JD Archival + Project Ranking (direct API) ==="
 if [[ "$JD_TEXT" == __JD_URL__:* ]]; then
     URL="${JD_TEXT#__JD_URL__:}"
     log "Fetching JD from URL: $URL"
-    JD_FETCHED=$($API_PY fetch --url "$URL" 2>/tmp/llm-cv-fetch.log)
+    JD_FETCHED=$($API_PY fetch --url "$URL" 2> >(tee /tmp/llm-cv-fetch.log >&2))
     if [[ $? -ne 0 || -z "$JD_FETCHED" ]]; then
         die "Failed to fetch JD from URL. See /tmp/llm-cv-fetch.log. Please paste JD text manually."
     fi
@@ -225,7 +225,7 @@ STEP1_OUTPUT=$($API_PY step1 \
     --source "$app_source" \
     --language "$language" \
     ${weak_tie_contact:+--weak-tie "$weak_tie_contact"} \
-    2>/tmp/llm-cv-step1.log)
+    2> >(tee /tmp/llm-cv-step1.log >&2))
 
 STEP1_EXIT=$?
 if [[ $STEP1_EXIT -ne 0 ]]; then
@@ -445,14 +445,16 @@ $API_PY step2 \
     --user-skills "$user_directed_skills" \
     --score-boost "$score_boost_mode" \
     --initial-score "$INITIAL_ATS_SCORE" \
-    > /tmp/llm-cv-step2.log 2>&1 &
+    --progress-pos 0 \
+    > /tmp/llm-cv-step2.log 2> >(tee -a /tmp/llm-cv-step2.log >&2) &
 RESUME_PID=$!
 
 $API_PY step3 \
     --app-dir "$APP_DIR" \
     --render "$render_mode" \
     --language "$language" \
-    > /tmp/llm-cv-step3.log 2>&1 &
+    --progress-pos 2 \
+    > /tmp/llm-cv-step3.log 2> >(tee -a /tmp/llm-cv-step3.log >&2) &
 CL_PID=$!
 
 log "Waiting for Step 2 (PID $RESUME_PID) and Step 3 (PID $CL_PID) API calls..."
@@ -516,7 +518,7 @@ while true; do
         --app-dir "$APP_DIR" \
         --error "$FIX_ERROR_MSG" \
         --language "$language" \
-        > /tmp/llm-cv-fix-$fix_attempt.log 2>&1 || true
+        > /tmp/llm-cv-fix-$fix_attempt.log 2> >(tee -a /tmp/llm-cv-fix-$fix_attempt.log >&2) || true
 done
 
 # Generate layout audit report from compilation results

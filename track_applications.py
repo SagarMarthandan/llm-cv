@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 import yaml
+from tqdm import tqdm
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -379,7 +380,8 @@ def rebuild_csv(dry_run: bool = False) -> int:
     not_in_obsidian = 0
     parse_failures = 0
 
-    for app_dir in app_folders:
+    for app_dir in tqdm(app_folders, desc="Parsing applications", unit="app",
+                        file=sys.stderr, leave=False):
         app = parse_application(app_dir)
         if app is None:
             parse_failures += 1

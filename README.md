@@ -72,14 +72,14 @@ Outputs land in `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`.
 
 ## Prerequisites
 
-- **Python 3.10+** with `pyyaml`, `reportlab`, `pypdf` (in `.venv/`)
+- **Python 3.10+** with `pyyaml`, `reportlab`, `pypdf`, `tqdm` (in `.venv/`)
 - **TeX Live** (`pdflatex`) for LaTeX-mode PDFs
 - **OpenRouter API key** stored in OMP's SQLite DB (`~/.omp/agent/agent.db`, table `auth_credentials`, provider `openrouter`)
 - **Firecrawl MCP tool** available (for URL-based JD scraping)
 - **Candidate photo** (`okf/SAGAR_MARTHANDAN_foto.jpg`) — stamped onto LaTeX-mode resume PDFs
 
 ```bash
-uv venv .venv && uv pip install --python .venv/bin/python pyyaml reportlab pypdf
+uv venv .venv && uv pip install --python .venv/bin/python pyyaml reportlab pypdf tqdm
 sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-lang-german
 ```
 
@@ -96,7 +96,7 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 
 ## Direct API Architecture
 
-`api_pipeline.py` makes 3 direct OpenRouter API calls. No OMP sessions, no subagent spawning. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Bash handles all parallelism, compilation, and coordination.
+`api_pipeline.py` makes 3 direct OpenRouter API calls. No OMP sessions, no subagent spawning. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Bash handles all parallelism, compilation, and coordination. Each API call and step shows a live `tqdm` progress bar on stderr (elapsed time, retry status, step phase).
 
 ### Static-First Cache Architecture
 

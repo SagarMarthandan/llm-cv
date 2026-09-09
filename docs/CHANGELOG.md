@@ -1,3 +1,25 @@
+## v4.2.0 — 2026-09-09
+
+### Added
+
+- **tqdm progress bars across the pipeline:** Live progress indicators on all API calls and batch operations. `api_pipeline.py` shows a step-level bar (Building prompt → Calling API → Parsing response → Writing files) plus a nested API spinner with elapsed time and retry status (attempt count, 429 backoff, errors). Parallel Step 2/3 bars use `--progress-pos` offsets to render on separate terminal lines. `run_pipeline.sh` redirects changed from `2>/tmp/log` to `2> >(tee /tmp/log >&2)` so tqdm bars reach the terminal while log files still capture all stderr. Batch scripts (`obsidian_sync_core.py`, `track_applications.py`, `check_watermarks.py`) show tqdm bars on their folder/file scanning loops.
+- **`--progress-pos` CLI flag:** Added to `api_pipeline.py` step2 and step3 subparsers for parallel bar positioning.
+
+### Changed
+
+- **`run_pipeline.sh` stderr redirects:** Step 1, JD fetch, Step 2/3, and fix pass now use `2> >(tee /tmp/log >&2)` (or `tee -a` for backgrounded steps) so stderr shows on terminal AND lands in log files. `$!` still captures the Python PID, `wait $PID` still returns the Python exit code — no behavioral change to pipeline flow.
+- **`call_openrouter()` signature:** Added `progress_pos: int = 0` parameter. Background ticker thread refreshes tqdm elapsed time every 0.5s while the HTTP request blocks.
+
+### Files Modified
+
+- `api_pipeline.py` — added `tqdm` + `threading` imports, tqdm spinner on `call_openrouter()`, step-level bars on `run_step1/2/3/fix()`, `--progress-pos` CLI flag.
+- `run_pipeline.sh` — stderr redirects changed to `tee` process substitution for Step 1, JD fetch, Step 2/3, fix pass. Added `--progress-pos` flags to step2/3 launches.
+- `obsidian_sync_core.py` — tqdm on `sync()` folder-parsing loop.
+- `track_applications.py` — tqdm on `rebuild_csv()` folder-scanning loop.
+- `check_watermarks.py` — tqdm on `scan_directory()` file loop.
+- `README.md` — added `tqdm` to prerequisites and install command, progress bar mention in Direct API Architecture section.
+- `docs/CHANGELOG.md` — v4.2.0 entry added.
+
 ## v4.1.0 — 2026-09-09
 
 ### Added

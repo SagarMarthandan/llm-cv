@@ -33,6 +33,7 @@ import unicodedata
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from tqdm import tqdm
 
 # ── Layer A: Invisible Unicode codepoints ────────────────────────────────────
 # Adapted from remove-ai-marks/scripts/text_unicode.py
@@ -376,7 +377,8 @@ def scan_file(path: Path) -> FileReport:
 def scan_directory(dir_path: Path) -> list[FileReport]:
     """Scan all YAML and PDF files in a directory."""
     reports: list[FileReport] = []
-    for p in sorted(dir_path.iterdir()):
+    for p in tqdm(sorted(dir_path.iterdir()), desc="Scanning files", unit="file",
+                  file=sys.stderr, leave=False):
         if p.is_file() and p.suffix.lower() in (".yaml", ".yml", ".pdf", ".tex"):
             reports.append(scan_file(p))
     return reports

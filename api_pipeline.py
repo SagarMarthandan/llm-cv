@@ -25,9 +25,12 @@ import os
 import re
 import sys
 import time
+import threading
 import urllib.request
 import urllib.error
 from pathlib import Path
+
+from tqdm import tqdm
 
 SKILL_DIR = Path(__file__).parent.resolve()
 APPLICATIONS_DIR = Path(os.getenv("LLM_CV_APPLICATIONS_DIR", "/home/sagar/Applications"))
@@ -288,7 +291,7 @@ SYSTEM_PROMPT = _load_system_prompt()
 
 def call_openrouter(prompt: str, system: str = None, model: str = None,
                     max_tokens: int = 16000, temperature: float = 0.3,
-                    max_retries: int = 4) -> dict:
+                    max_retries: int = 4, progress_pos: int = 0) -> dict:
     """Make a single API call to OpenRouter with retry on 429.
 
     The system message is sent with cache_control to enable prompt caching.
@@ -329,36 +332,60 @@ def call_openrouter(prompt: str, system: str = None, model: str = None,
 
     data = json.dumps(payload).encode("utf-8")
 
-    system_tokens = len(system) // 4
-    print(f"[api] Calling {model} (max_tokens={max_tokens}, temp={temperature}, "
-          f"system={system_tokens:,} tokens)...", file=sys.stderr)
+    model_short = model.split("/")[-1]
+    pbar = tqdm(
+        total=1, unit="req",
+        desc=f"  ↳ API: {model_short}",
+        file=sys.stderr,
+        leave=False,
+        position=progress_pos,
+        bar_format="{desc} |{bar}| {elapsed} {postfix}",
+    )
+
+    # Background thread to refresh elapsed time while HTTP request blocks
+    stop_event = threading.Event()
+    def _tick():
+        while not stop_event.wait(0.5):
+            pbar.refresh()
+    ticker = threading.Thread(target=_tick, daemon=True)
+    ticker.start()
 
     start = time.time()
-    for attempt in range(max_retries + 1):
-        req = urllib.request.Request(OPENROUTER_URL, data=data, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                break
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            if e.code == 429 and attempt < max_retries:
-                wait = 2 ** attempt + 1
-                print(f"[api] HTTP 429 (rate limited). Retrying in {wait}s (attempt {attempt+1}/{max_retries})...", file=sys.stderr)
-                time.sleep(wait)
-                continue
-            print(f"[api] HTTP {e.code}: {body[:500]}", file=sys.stderr)
-            raise
-        except Exception as e:
-            if attempt < max_retries:
-                wait = 2 ** attempt
-                print(f"[api] Error: {e}. Retrying in {wait}s (attempt {attempt+1}/{max_retries})...", file=sys.stderr)
-                time.sleep(wait)
-                continue
-            print(f"[api] Error: {e}", file=sys.stderr)
-            raise
-    else:
-        raise RuntimeError(f"API call failed after {max_retries + 1} attempts")
+    try:
+        for attempt in range(max_retries + 1):
+            pbar.set_postfix_str(f"attempt {attempt+1}/{max_retries+1}")
+            req = urllib.request.Request(OPENROUTER_URL, data=data, headers=headers, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
+                    result = json.loads(resp.read().decode("utf-8"))
+                    break
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace")
+                if e.code == 429 and attempt < max_retries:
+                    wait = 2 ** attempt + 1
+                    pbar.set_postfix_str(f"429, retry in {wait}s")
+                    time.sleep(wait)
+                    continue
+                pbar.set_postfix_str(f"HTTP {e.code}")
+                print(f"[api] HTTP {e.code}: {body[:500]}", file=sys.stderr)
+                raise
+            except Exception as e:
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    pbar.set_postfix_str(f"error, retry in {wait}s")
+                    time.sleep(wait)
+                    continue
+                pbar.set_postfix_str(f"error: {e}")
+                print(f"[api] Error: {e}", file=sys.stderr)
+                raise
+        else:
+            raise RuntimeError(f"API call failed after {max_retries + 1} attempts")
+
+        pbar.update(1)
+    finally:
+        stop_event.set()
+        ticker.join(timeout=1)
+        pbar.close()
 
     elapsed = time.time() - start
     usage = result.get("usage", {})
@@ -367,11 +394,8 @@ def call_openrouter(prompt: str, system: str = None, model: str = None,
     completion_tokens = usage.get("completion_tokens", 0)
     cost = usage.get("cost", 0)
     cache_pct = (cached / prompt_tokens * 100) if prompt_tokens else 0
-    print(f"[api] Response in {elapsed:.1f}s — "
-          f"prompt={prompt_tokens:,}, "
-          f"completion={completion_tokens:,}, "
-          f"cached={cached:,} ({cache_pct:.0f}%), "
-          f"cost=${cost:.4f}", file=sys.stderr)
+    print(f"[api] {elapsed:.1f}s — prompt={prompt_tokens:,} completion={completion_tokens:,} "
+          f"cached={cached:,} ({cache_pct:.0f}%) cost=${cost:.4f}", file=sys.stderr)
 
     return result
 
@@ -952,72 +976,87 @@ Output the corrected Resume.yaml in a single code block:
 
 def run_step1(args):
     """Execute Step 1: ATS analysis + JD archival + project ranking."""
+    progress_pos = getattr(args, 'progress_pos', 0)
+
     jd_text = read_file(Path(args.jd_file)) if args.jd_file else args.jd_text
     if not jd_text:
         print("ERROR: No JD text provided", file=sys.stderr)
         sys.exit(1)
 
-    prompt = build_step1_prompt(
-        jd_text=jd_text,
-        render_mode=args.render,
-        resume_style=args.style,
-        app_source=args.source,
-        language=args.language,
-        weak_tie=args.weak_tie or "",
-    )
+    with tqdm(total=4, desc="Step 1: ATS Analysis", file=sys.stderr,
+              unit="step", position=progress_pos,
+              bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}] {postfix}") as pbar:
+        pbar.set_postfix_str("Building prompt")
+        prompt = build_step1_prompt(
+            jd_text=jd_text,
+            render_mode=args.render,
+            resume_style=args.style,
+            app_source=args.source,
+            language=args.language,
+            weak_tie=args.weak_tie or "",
+        )
+        pbar.update(1)
 
-    response = call_openrouter(prompt, max_tokens=16000)
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        pbar.set_postfix_str("Calling API")
+        response = call_openrouter(prompt, max_tokens=16000, progress_pos=progress_pos + 1)
+        pbar.update(1)
 
-    yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
-    md_blocks = re.findall(r'```(?:markdown|md)?\s*\n(.*?)```', content, re.DOTALL)
+        pbar.set_postfix_str("Parsing response")
+        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-    if not yaml_blocks:
-        print("ERROR: No YAML blocks found in response", file=sys.stderr)
-        print(f"Response preview: {content[:500]}", file=sys.stderr)
-        sys.exit(1)
+        yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+        md_blocks = re.findall(r'```(?:markdown|md)?\s*\n(.*?)```', content, re.DOTALL)
 
-    ats_yaml = yaml_blocks[0].strip()
+        if not yaml_blocks:
+            print("ERROR: No YAML blocks found in response", file=sys.stderr)
+            print(f"Response preview: {content[:500]}", file=sys.stderr)
+            sys.exit(1)
 
-    company = ""
-    position = ""
-    company_match = re.search(r'^company:\s*"?([^"\n]+)"?\s*$', ats_yaml, re.MULTILINE)
-    position_match = re.search(r'^position:\s*"?([^"\n]+)"?\s*$', ats_yaml, re.MULTILINE)
-    if company_match:
-        company = company_match.group(1).strip()
-    if position_match:
-        position = position_match.group(1).strip()
+        ats_yaml = yaml_blocks[0].strip()
 
-    if not company or not position:
-        print("ERROR: Could not extract company/position from ATS_Report.yaml", file=sys.stderr)
-        sys.exit(1)
+        company = ""
+        position = ""
+        company_match = re.search(r'^company:\s*"?([^"\n]+)"?\s*$', ats_yaml, re.MULTILINE)
+        position_match = re.search(r'^position:\s*"?([^"\n]+)"?\s*$', ats_yaml, re.MULTILINE)
+        if company_match:
+            company = company_match.group(1).strip()
+        if position_match:
+            position = position_match.group(1).strip()
 
-    safe_company = company.replace("/", "")
-    safe_position = position.replace("/", "")
-    app_dir = APPLICATIONS_DIR / f"{safe_company} — {safe_position}"
-    app_dir.mkdir(parents=True, exist_ok=True)
+        if not company or not position:
+            print("ERROR: Could not extract company/position from ATS_Report.yaml", file=sys.stderr)
+            sys.exit(1)
 
-    write_yaml_file(app_dir / "ATS_Report.yaml", ats_yaml)
+        safe_company = company.replace("/", "")
+        safe_position = position.replace("/", "")
+        app_dir = APPLICATIONS_DIR / f"{safe_company} — {safe_position}"
+        app_dir.mkdir(parents=True, exist_ok=True)
+        pbar.update(1)
 
-    if len(yaml_blocks) >= 2:
-        write_yaml_file(app_dir / "Job_Description.yaml", yaml_blocks[1].strip())
+        pbar.set_postfix_str("Writing files")
+        write_yaml_file(app_dir / "ATS_Report.yaml", ats_yaml)
 
-    project_info_content = ""
-    for block in md_blocks:
-        if "Tailored Project Portfolio" in block or "LLM Rank" in block:
-            project_info_content = block.strip()
-            break
+        if len(yaml_blocks) >= 2:
+            write_yaml_file(app_dir / "Job_Description.yaml", yaml_blocks[1].strip())
 
-    if not project_info_content:
-        md_match = re.search(r'# Tailored Project Portfolio.*?(?=```|$)', content, re.DOTALL)
-        if md_match:
-            project_info_content = md_match.group(0).strip()
+        project_info_content = ""
+        for block in md_blocks:
+            if "Tailored Project Portfolio" in block or "LLM Rank" in block:
+                project_info_content = block.strip()
+                break
 
-    if project_info_content:
-        (app_dir / "project_info.md").write_text(project_info_content, encoding="utf-8")
-        print(f"[ok] Wrote project_info.md ({len(project_info_content)} bytes)", file=sys.stderr)
-    else:
-        print("[warn] project_info.md not found in response", file=sys.stderr)
+        if not project_info_content:
+            md_match = re.search(r'# Tailored Project Portfolio.*?(?=```|$)', content, re.DOTALL)
+            if md_match:
+                project_info_content = md_match.group(0).strip()
+
+        if project_info_content:
+            (app_dir / "project_info.md").write_text(project_info_content, encoding="utf-8")
+            print(f"[ok] Wrote project_info.md ({len(project_info_content)} bytes)", file=sys.stderr)
+        else:
+            print("[warn] project_info.md not found in response", file=sys.stderr)
+
+        pbar.update(1)
 
     print(str(app_dir))
     return 0
@@ -1025,45 +1064,59 @@ def run_step1(args):
 
 def run_step2(args):
     """Execute Step 2: Resume writer + ATS rescoring."""
+    progress_pos = getattr(args, 'progress_pos', 0)
+
     app_dir = Path(args.app_dir)
     if not app_dir.exists():
         print(f"ERROR: App dir not found: {app_dir}", file=sys.stderr)
         sys.exit(1)
 
-    prompt = build_step2_prompt(
-        app_dir=app_dir,
-        render_mode=args.render,
-        resume_style=args.style,
-        language=args.language,
-        stuffing=args.stuffing,
-        user_skills=args.user_skills or "",
-        score_boost=args.score_boost,
-        initial_score=int(args.initial_score or 0),
-    )
+    with tqdm(total=4, desc="Step 2: Resume Writer", file=sys.stderr,
+              unit="step", position=progress_pos,
+              bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}] {postfix}") as pbar:
+        pbar.set_postfix_str("Building prompt")
+        prompt = build_step2_prompt(
+            app_dir=app_dir,
+            render_mode=args.render,
+            resume_style=args.style,
+            language=args.language,
+            stuffing=args.stuffing,
+            user_skills=args.user_skills or "",
+            score_boost=args.score_boost,
+            initial_score=int(args.initial_score or 0),
+        )
+        pbar.update(1)
 
-    response = call_openrouter(prompt, max_tokens=16000)
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        pbar.set_postfix_str("Calling API")
+        response = call_openrouter(prompt, max_tokens=16000, progress_pos=progress_pos + 1)
+        pbar.update(1)
 
-    yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+        pbar.set_postfix_str("Parsing response")
+        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-    if not yaml_blocks:
-        print("ERROR: No YAML blocks found in response", file=sys.stderr)
-        print(f"Response preview: {content[:500]}", file=sys.stderr)
-        sys.exit(1)
+        yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
 
-    write_yaml_file(app_dir / "Resume.yaml", yaml_blocks[0].strip())
+        if not yaml_blocks:
+            print("ERROR: No YAML blocks found in response", file=sys.stderr)
+            print(f"Response preview: {content[:500]}", file=sys.stderr)
+            sys.exit(1)
+        pbar.update(1)
 
-    if len(yaml_blocks) >= 2:
-        post_score_yaml = yaml_blocks[1].strip()
-        ats_path = app_dir / "ATS_Report.yaml"
-        existing = read_file(ats_path)
-        if existing and "post_rewrite_ats_score" not in existing:
-            appended = existing.rstrip() + "\n\n" + post_score_yaml + "\n"
-            write_yaml_file(ats_path, appended)
-        elif existing and "post_rewrite_ats_score" in existing:
-            pattern = r'post_rewrite_ats_score:.*$'
-            replaced = re.sub(pattern, post_score_yaml, existing, flags=re.DOTALL)
-            write_yaml_file(ats_path, replaced)
+        pbar.set_postfix_str("Writing files")
+        write_yaml_file(app_dir / "Resume.yaml", yaml_blocks[0].strip())
+
+        if len(yaml_blocks) >= 2:
+            post_score_yaml = yaml_blocks[1].strip()
+            ats_path = app_dir / "ATS_Report.yaml"
+            existing = read_file(ats_path)
+            if existing and "post_rewrite_ats_score" not in existing:
+                appended = existing.rstrip() + "\n\n" + post_score_yaml + "\n"
+                write_yaml_file(ats_path, appended)
+            elif existing and "post_rewrite_ats_score" in existing:
+                pattern = r'post_rewrite_ats_score:.*$'
+                replaced = re.sub(pattern, post_score_yaml, existing, flags=re.DOTALL)
+                write_yaml_file(ats_path, replaced)
+        pbar.update(1)
 
     print("STEP 2 COMPLETE")
     return 0
@@ -1071,28 +1124,40 @@ def run_step2(args):
 
 def run_step3(args):
     """Execute Step 3: Cover letter writer."""
+    progress_pos = getattr(args, 'progress_pos', 0)
+
     app_dir = Path(args.app_dir)
     if not app_dir.exists():
         print(f"ERROR: App dir not found: {app_dir}", file=sys.stderr)
         sys.exit(1)
 
-    prompt = build_step3_prompt(
-        app_dir=app_dir,
-        render_mode=args.render,
-        language=args.language,
-    )
+    with tqdm(total=3, desc="Step 3: Cover Letter", file=sys.stderr,
+              unit="step", position=progress_pos,
+              bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}] {postfix}") as pbar:
+        pbar.set_postfix_str("Building prompt")
+        prompt = build_step3_prompt(
+            app_dir=app_dir,
+            render_mode=args.render,
+            language=args.language,
+        )
+        pbar.update(1)
 
-    response = call_openrouter(prompt, max_tokens=8000)
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        pbar.set_postfix_str("Calling API")
+        response = call_openrouter(prompt, max_tokens=8000, progress_pos=progress_pos + 1)
+        pbar.update(1)
 
-    yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+        pbar.set_postfix_str("Writing file")
+        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-    if not yaml_blocks:
-        print("ERROR: No YAML blocks found in response", file=sys.stderr)
-        print(f"Response preview: {content[:500]}", file=sys.stderr)
-        sys.exit(1)
+        yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
 
-    write_yaml_file(app_dir / "Cover_Letter.yaml", yaml_blocks[0].strip())
+        if not yaml_blocks:
+            print("ERROR: No YAML blocks found in response", file=sys.stderr)
+            print(f"Response preview: {content[:500]}", file=sys.stderr)
+            sys.exit(1)
+
+        write_yaml_file(app_dir / "Cover_Letter.yaml", yaml_blocks[0].strip())
+        pbar.update(1)
 
     print("STEP 3 COMPLETE")
     return 0
@@ -1100,19 +1165,33 @@ def run_step3(args):
 
 def run_fix(args):
     """Execute a fix pass on Resume.yaml."""
+    progress_pos = getattr(args, 'progress_pos', 0)
+
     app_dir = Path(args.app_dir)
-    prompt = build_fix_prompt(app_dir, args.error, args.language)
 
-    response = call_openrouter(prompt, max_tokens=16000)
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+    with tqdm(total=3, desc="Fix: Resume YAML", file=sys.stderr,
+              unit="step", position=progress_pos,
+              bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}] {postfix}") as pbar:
+        pbar.set_postfix_str("Building prompt")
+        prompt = build_fix_prompt(app_dir, args.error, args.language)
+        pbar.update(1)
 
-    yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
-    if yaml_blocks:
-        write_yaml_file(app_dir / "Resume.yaml", yaml_blocks[0].strip())
-        print("FIX COMPLETE")
-    else:
-        print("ERROR: No YAML in fix response", file=sys.stderr)
-        sys.exit(1)
+        pbar.set_postfix_str("Calling API")
+        response = call_openrouter(prompt, max_tokens=16000, progress_pos=progress_pos + 1)
+        pbar.update(1)
+
+        pbar.set_postfix_str("Writing file")
+        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+        yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
+        if yaml_blocks:
+            write_yaml_file(app_dir / "Resume.yaml", yaml_blocks[0].strip())
+            print("FIX COMPLETE")
+        else:
+            print("ERROR: No YAML in fix response", file=sys.stderr)
+            sys.exit(1)
+        pbar.update(1)
+
     return 0
 
 
@@ -1201,6 +1280,7 @@ def main():
     p2.add_argument("--score-boost", default="false", choices=["true", "false"])
     p2.add_argument("--initial-score", default="0")
     p2.add_argument("--model", default=DEFAULT_MODEL)
+    p2.add_argument("--progress-pos", type=int, default=0, help="tqdm bar position for parallel display")
 
     # Step 3
     p3 = subparsers.add_parser("step3", help="Cover letter writer")
@@ -1208,6 +1288,7 @@ def main():
     p3.add_argument("--render", default="latex", choices=["latex", "reportfallback"])
     p3.add_argument("--language", default="English", choices=["English", "German"])
     p3.add_argument("--model", default=DEFAULT_MODEL)
+    p3.add_argument("--progress-pos", type=int, default=0, help="tqdm bar position for parallel display")
 
     # Fetch
     pfetch = subparsers.add_parser("fetch", help="Fetch JD from URL via Jina Reader")

@@ -86,9 +86,11 @@ Keyword stuffing and score-boost decisions are passed as CLI flags to stage 2, n
 Bash launches Steps 2 and 3 in parallel using `&` and `wait`:
 
 ```bash
-$API_PY step2 --app-dir "$APP_DIR" ... > /tmp/llm-cv-step2.log 2>&1 &
+$API_PY step2 --app-dir "$APP_DIR" ... --progress-pos 0 \
+    > /tmp/llm-cv-step2.log 2> >(tee -a /tmp/llm-cv-step2.log >&2) &
 STEP2_PID=$!
-$API_PY step3 --app-dir "$APP_DIR" ... > /tmp/llm-cv-step3.log 2>&1 &
+$API_PY step3 --app-dir "$APP_DIR" ... --progress-pos 2 \
+    > /tmp/llm-cv-step3.log 2> >(tee -a /tmp/llm-cv-step3.log >&2) &
 STEP3_PID=$!
 
 wait "$STEP2_PID"
@@ -232,20 +234,17 @@ After Step 1 ranks the top 6 projects, `extract_projects.py --from-project-info`
 
 ### Pipeline Scripts
 
-| File | Role |
+| `api_pipeline.py` | Direct OpenRouter API calls (~1320 lines). Static system prompt, 3 step builders, fix loop, URL fetch. tqdm progress bars on all API calls and step phases. |
 |:---|:---|
-| `api_pipeline.py` | Direct OpenRouter API calls (~1236 lines). Static system prompt, 3 step builders, fix loop, URL fetch. |
 | `run_pipeline.sh` | 2-stage bash orchestrator (615 lines). Arg parsing, stage routing, Step 1 launch, stuffing decision, Steps 2+3 parallel launch, fix loop, sync, summary. |
 | `lib/compile.sh` | Compilation functions (199 lines). Sourced by run_pipeline.sh. |
 | `extract_projects.py` | Condensed catalog generation + selected projects extraction (3 modes) |
 | `config.py` | Location lookup, candidate info, `SKILL_DIR` constant |
 | `yaml_to_pdf.py` | PDF compilation entry point (routes YAML to renderers) |
-| `resume_parseability.py` | ATS parse-integrity audit on compiled PDF |
+| `check_watermarks.py` | AI watermark/provenance check (3 layers: Unicode, C2PA, metadata). tqdm on directory scan. |
 | `stamp_photo.py` | Candidate photo stamping onto LaTeX-mode resume PDFs |
-| `check_watermarks.py` | AI watermark/provenance check (3 layers: Unicode, C2PA, metadata) |
-| `check_duplicate_application.py` | Duplicate application detection (Obsidian vault + filesystem) |
+| `obsidian_sync_core.py` | Obsidian sync core logic. tqdm on full-sync folder parsing loop. |
 | `organize_applications.py` | Application folder organization (date tree sort) |
-| `obsidian_sync_core.py` | Obsidian sync core logic |
 | `obsidian_folder_sort.py` | Folder sorting logic |
 | `sync_to_obsidian.py` | Obsidian sync entry point |
 | `track_outcomes.py` | Application outcome tracking |
