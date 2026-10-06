@@ -17,7 +17,7 @@
 # Usage:
 #   ./run_pipeline.sh                          # interactive — prompts for all
 #   ./run_pipeline.sh "paste JD text here"     # pass JD text directly
-#   ./run_pipeline.sh --url "https://..."      # fetch JD from URL (Jina Reader)
+#   ./run_pipeline.sh --url "https://..."      # fetch JD from URL (TinyFish)
 #   ./run_pipeline.sh --file jd.txt            # read JD from file
 #
 # Non-interactive (agent mode — all options via CLI flags):
@@ -102,7 +102,7 @@ if [[ -n "$JD_FILE" ]]; then
     log "JD loaded from file: $JD_FILE"
 elif [[ -n "$JD_URL" ]]; then
     log "JD URL provided: $JD_URL"
-    log "Step 0 (JD Fetch) will be run inside the Step 1 session."
+    log "Step 0 uses TinyFish inside the pipeline; backups are launcher-managed."
     JD_TEXT="__JD_URL__:$JD_URL"
 elif [[ -z "$JD_TEXT" ]]; then
     log "Paste the full Job Description text (Ctrl+D to finish):"
@@ -202,16 +202,16 @@ source "$SCRIPT_DIR/lib/compile.sh"
 if [[ "$OPT_STAGE" != "2" ]]; then
 
 ###############################################################################
-log "=== Step 1: ATS Analysis & JD Archival + Project Ranking (direct API) ==="
+log "=== Step 1: ATS Analysis & JD Archival + Project Ranking (harness default) ==="
 
 # Handle URL fetch first (replaces Step 0 agent session)
 if [[ "$JD_TEXT" == __JD_URL__:* ]]; then
     URL="${JD_TEXT#__JD_URL__:}"
     log "Fetching JD from URL: $URL"
-    JD_FETCHED=$($API_PY fetch --url "$URL" 2> >(tee /tmp/llm-cv-fetch.log >&2))
-    if [[ $? -ne 0 || -z "$JD_FETCHED" ]]; then
-        die "Failed to fetch JD from URL. See /tmp/llm-cv-fetch.log. Please paste JD text manually."
+    if ! JD_FETCHED=$($API_PY fetch --url "$URL" 2> >(tee /tmp/llm-cv-fetch.log >&2)); then
+        die "TinyFish could not fetch the JD. See /tmp/llm-cv-fetch.log. Launcher: try Firecrawl, then Jina, or request pasted JD text."
     fi
+    [[ -n "$JD_FETCHED" ]] || die "TinyFish returned an empty JD. Please paste JD text manually."
     JD_TEXT="$JD_FETCHED"
     echo "$JD_TEXT" > "$JD_TEMP"
     log "JD fetched (${#JD_TEXT} chars)"

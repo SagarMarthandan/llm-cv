@@ -9,25 +9,27 @@ dependencies: python>=3.10, pyyaml, reportlab, pypdf, stop-slop
 
 When the user says "llm-cv" with a JD (pasted text, URL, or file path), do exactly TWO things:
 
-### Step 0 (if URL): Fetch JD via Firecrawl
+### Step 0 (if URL): TinyFish primary, failure-only backups
 
-When the user provides a URL, scrape the JD **before** launching the pipeline using the `firecrawl_scrape` MCP tool.
-This ensures correct content extraction (Jina Reader follows redirects and can return wrong jobs on Indeed/Personio).
-Firecrawl scrapes the actual page directly.
+Pass the original posting URL directly to `run_pipeline.sh --url`. The pipeline
+uses `tinyfish fetch content get --format markdown` internally. Do NOT scrape
+before launching, load additional scraping skills, search for alternate postings,
+or run several scrapers in parallel.
 
-```
-firecrawl_scrape(url="https://de.indeed.com/viewjob?jk=...", formats=["markdown"])
-```
+Only if Stage 1 stops because TinyFish failed or returned an unusable JD:
+1. Use the already-mounted `firecrawl_scrape` MCP tool once for the same URL
+   (`formats: ["markdown"]`, `onlyMainContent: true`, `maxAge: 0`). No separate
+   Firecrawl skill is needed.
+2. If Firecrawl also fails or returns unusable content, run the explicit final
+   backup: `.venv/bin/python api_pipeline.py fetch --url "<URL>" --scraper jina`.
+3. Save the successful backup text to a unique `/tmp/llm-cv-jd-<slug>.txt` file.
+   Rerun Stage 1 with `--file` and the same configuration answers.
+4. If all three fail, ask the user to paste the full JD. Never use login/error
+   pages, summaries, or a different posting as the job description.
 
-Save the returned markdown content to a temp file:
-```bash
-cat > /tmp/llm-cv-jd.txt << 'EOF'
-[paste the markdown content from firecrawl_scrape response]
-EOF
-```
-
-Then pass `--file /tmp/llm-cv-jd.txt` to the pipeline instead of `--url`.
-If Firecrawl fails or returns <200 chars, fall back to `--url` (pipeline uses Jina Reader internally).
+Normal URL runs use only TinyFish. Firecrawl and Jina are sequential backups,
+not alternative defaults; the launcher handles them because Firecrawl is an MCP
+tool, not a required local CLI.
 
 ### Step 1: Ask First Action questions via `ask`
 
@@ -46,10 +48,10 @@ Keyword stuffing is NOT asked here — it is asked AFTER Step 1 when skill gaps 
 
 ### Step 2: Launch Stage 1 (Step 1 — ATS analysis)
 
-Pass all selections as CLI flags. Use `--file` if JD was fetched via Firecrawl, `--url` as fallback:
+Pass all selections as CLI flags. Use `--url` for a posting URL; use `--file` for an existing JD file or successful backup extraction:
 
 ```bash
-cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh --file /tmp/llm-cv-jd.txt \
+cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh --url "<posting URL>" \
     --render latex --style german --source "Cold Apply" --language English \
     --stage 1
 ```
@@ -83,8 +85,8 @@ cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh \
 ```
 
 **Flag reference:**
-- `--file path` — JD from file (PREFERRED for URLs: agent scrapes via Firecrawl first, saves to /tmp/llm-cv-jd.txt, passes --file)
-- `--url "..."` — JD from URL (FALLBACK: pipeline fetches via Jina Reader internally; can follow redirects incorrectly on Indeed/Personio)
+- `--file path` — JD from an existing file, or a successful backup extraction saved to a unique temporary file
+- `--url "..."` — JD from URL using TinyFish inside the pipeline; Firecrawl then Jina only after extraction failure (see Step 0)
 - `"pasted JD text"` — JD passed directly as argument (for pasted text)
 - `--stage 1|2` — pipeline phase (1 = Step 1 only, 2 = Steps 2+3 + compile)
 - `--app-dir "..."` — application folder path (stage 2 required, from stage 1 output)
@@ -246,9 +248,9 @@ Key design: bash launches Steps 2 and 3 in parallel using `&` and `wait`. 3 harn
 
 ### STEP 0 (optional): JD Fetch — URL → Job Description Text
 
-**Primary method (agent-side):** When the user provides a URL, the agent scrapes it via `firecrawl_scrape` MCP tool (formats: ["markdown"]) BEFORE launching the pipeline. Save the markdown to `/tmp/llm-cv-jd.txt` and pass `--file /tmp/llm-cv-jd.txt` to `run_pipeline.sh`. Firecrawl extracts the actual page content without following redirects (Jina Reader follows redirects and can return wrong jobs on Indeed/Personio).
+**Primary (pipeline-side):** Pass the original URL to `run_pipeline.sh --url`. `api_pipeline.py fetch` invokes TinyFish only. Do not pre-scrape or load extra scraping skills. Valid cached text is reused for seven days; cache filenames include the scraper name so old Jina/direct-fetch cache entries cannot become TinyFish results.
 
-**Fallback (pipeline-side):** If `--url` is passed directly, `api_pipeline.py fetch` uses Jina Reader (`r.jina.ai/{url}`). Cache at `okf/.jd_cache/<sha1(url)>.txt` (7-day TTL). JS-SPA vendors (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio) → Jina Reader directly. Static/Unknown → direct fetch, Jina fallback. Manual paste is always the final fallback.
+**Failure-only backups (launcher-side):** If TinyFish fails or returns an unusable JD, call the mounted `firecrawl_scrape` MCP tool for the same URL. If that also fails, run `api_pipeline.py fetch --url "<URL>" --scraper jina`. Save a successful backup to a unique temporary JD file and rerun Stage 1 with `--file`. If all fail, request pasted text. No vendor-specific routing, parallel scraping, or automatic direct-HTML fallback.
 
 **Output:** Clean JD text + `source_url` + ATS vendor → handed to Step 1.
 

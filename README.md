@@ -9,10 +9,10 @@ The agent asks 4 configuration questions, then launches `run_pipeline.sh` in two
 ```
 User says "llm-cv" + JD (URL, file, or pasted text)
     │
-    ├── [if URL] Agent scrapes JD via firecrawl_scrape → saves to /tmp/llm-cv-jd.txt
+    ├── [if URL] Pass --url; pipeline fetches JD via TinyFish (no pre-scraping)
     ├── Agent asks 4 questions (render mode, style, source, language)
     │
-    ├── Stage 1: run_pipeline.sh --stage 1 --file /tmp/llm-cv-jd.txt ...
+    ├── Stage 1: run_pipeline.sh --stage 1 --url "<posting URL>" ...
     │       │
     │       ├── Step 1 harness call: ATS + JD archival + project ranking (reads 21KB condensed catalog)
     │       ├── [bash] Compile Step 1 PDFs + extract selected projects → selected_projects.yaml
@@ -75,7 +75,7 @@ Outputs land in `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`.
 - **Python 3.10+** with `pyyaml`, `reportlab`, `pypdf`, `tqdm` (in `.venv/`)
 - **TeX Live** (`pdflatex`) for LaTeX-mode PDFs
 - **OMP CLI** (`omp` on `PATH`) with a configured default model and working provider authentication
-- **Firecrawl MCP tool** available (for URL-based JD scraping)
+- **TinyFish CLI** (`tinyfish` on `PATH`) with working authentication for URL-based JD fetching; **Firecrawl MCP** and **Jina Reader** are failure-only backups
 - **Candidate photo** (`okf/SAGAR_MARTHANDAN_foto.jpg`) — stamped onto LaTeX-mode resume PDFs
 
 ```bash
@@ -87,12 +87,18 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 
 | Step | What happens | Outputs |
 |:---|:---|:---|
-| **0** (optional) | Agent scrapes JD from URL via Firecrawl MCP tool. Fallback: pipeline fetches via Jina Reader. | Clean JD text at `/tmp/llm-cv-jd.txt` |
+| **0** (optional) | Pipeline fetches the URL via TinyFish only. On failure, launcher tries Firecrawl, then explicit Jina backup; otherwise requests pasted text. No extra scraping skills. | Clean JD text; backups use unique temporary JD files |
 | **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (15 → top 6 from condensed 21KB catalog), JD archival, location tailoring. Harness call. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
 | **[bash]** | Compile Step 1 PDFs. Extract full project data for ranked projects via `extract_projects.py`. | `selected_projects.yaml` (~7KB) |
 | **2** | Resume rewrite from `selected_projects.yaml` (7KB). Skill gap closure, keyword stuffing, 3-bullet project summaries with mandatory quantitative metrics. Post-rewrite ATS rescoring. Harness call. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf` |
 | **3** (parallel with 2) | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. Harness call. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **[bash]** | Compile resume (pdflatex x2 → stamp photo → parseability audit → watermark check). Compile cover letter. Fix loop if parseability fails. Obsidian sync + folder sort. | Final PDFs, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
+
+### URL scraping order
+
+Normal URL runs use `run_pipeline.sh --url "<URL>"`; the pipeline calls TinyFish once. Do not pre-scrape or load additional scraping skills. If TinyFish fails or returns the wrong/incomplete JD, the launcher uses the mounted `firecrawl_scrape` MCP tool for the same URL. Only if that also fails does it run `.venv/bin/python api_pipeline.py fetch --url "<URL>" --scraper jina`. A successful backup is saved to a unique temporary file and Stage 1 reruns with `--file`; configuration answers are reused. If all fail, request pasted JD text.
+
+Firecrawl backup orchestration lives in the agent launcher because it is an MCP tool, not a local shell dependency. The standalone shell pipeline stops on TinyFish failure rather than silently changing scraper. Caches are scraper-specific (`tinyfish-<sha1(url)>.txt` / `jina-<sha1(url)>.txt`, seven-day TTL); legacy unprefixed cache entries are ignored.
 
 ## Harness Architecture
 

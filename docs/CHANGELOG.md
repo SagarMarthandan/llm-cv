@@ -3,6 +3,11 @@
 ### Changed
 
 - Pipeline steps and resume fix calls now use `omp --print --mode json` without a model/provider override, replacing the hardcoded Qwen/OpenRouter path. OMP selects its configured default model and handles authentication and reasoning. Removed pipeline OpenRouter credential lookup and `LLM_CV_MODEL` selection; retained `LLM_CV_API_TIMEOUT` as the harness-call timeout. Calls use isolated temporary workspaces and report the actual provider/model. Two-stage orchestration, parallel resume/cover-letter generation, and compilation are unchanged.
+- URL runs now use TinyFish inside the pipeline as the sole primary scraper, without agent-side pre-scraping or extra scraping skills. Firecrawl MCP and explicit Jina Reader calls remain sequential failure-only backups managed by the launcher. Removed vendor-specific scraper routing and direct-HTML fallback; scraper-specific cache names prevent reuse of legacy results. Updated URL-fetch instructions, skill guidance, README, and architecture docs.
+
+### Fixed
+
+- Removed stale CLI `--model` defaults referencing the deleted `DEFAULT_MODEL`, which prevented all `api_pipeline.py` subcommands from starting after the harness-model cutover.
 
 ## v4.2.0 — 2026-09-09
 

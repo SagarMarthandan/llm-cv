@@ -6,7 +6,7 @@ LLM-CV is an ATS-optimized resume and cover letter generation pipeline. A 2-stag
 
 ### Design Philosophy
 
-- **Agent is a launcher, not a worker:** When the user says "llm-cv" with a JD, the agent's only job is to ask 4 configuration questions via `ask`, scrape the JD via Firecrawl (if URL), then launch `run_pipeline.sh` in two stages with one `ask` in between for keyword stuffing.
+- **Agent is a launcher, not a worker:** Ask 4 configuration questions, pass the original URL via `--url` (TinyFish fetches inside the pipeline), then run two stages with one `ask` between for keyword stuffing. Only extraction failures trigger launcher-managed Firecrawl then Jina backups.
 - **Harness model selection:** No pipeline model/provider override. OMP handles provider authentication and chooses its configured default model.
 - **Shared system prompt:** The same prompt is supplied through `--system-prompt`; caching and token limits depend on the harness provider.
 - **2-stage split:** Keyword stuffing asked AFTER Step 1 when skill gaps are known. Stage 1 prints APP_DIR, SKILL_GAPS, ATS_SCORE. Agent reads these, asks user, launches stage 2.
@@ -23,10 +23,10 @@ LLM-CV is an ATS-optimized resume and cover letter generation pipeline. A 2-stag
 ```
 User says "llm-cv" + JD (URL, file, or pasted text)
     │
-    ├── [if URL] Agent scrapes JD via firecrawl_scrape MCP tool → /tmp/llm-cv-jd.txt
+    ├── [if URL] Pass --url; pipeline fetches via TinyFish (backups only on failure)
     ├── Agent asks 4 questions via ask (render mode, style, source, language)
     │
-    ├── Stage 1: run_pipeline.sh --stage 1 --file /tmp/llm-cv-jd.txt ...
+    ├── Stage 1: run_pipeline.sh --stage 1 --url "<posting URL>" ...
     │       │
     │       ├── Step 1 harness call (OMP default model)
     │       │     reads: 10.5K system prompt + condensed catalog (21KB) + base resume + JD
@@ -291,9 +291,9 @@ Keyword stuffing asked blind upfront often adds irrelevant skills. Asking after 
 
 The system prompt is the same for all 3 steps, keeping constraints and examples consistent. OMP supplies it to the selected provider; provider caching behavior is not hardcoded in the pipeline.
 
-### Why Firecrawl for JD scraping
+### Why one primary JD scraper
 
-Jina Reader follows redirects, which causes wrong-job extraction on Indeed/Personio (Indeed job links redirect to original posting). Firecrawl scrapes the actual page directly. The agent calls `firecrawl_scrape` MCP tool before launching the pipeline, saves to `/tmp/llm-cv-jd.txt`, passes `--file` to the pipeline. Zero pipeline tokens wasted on fetching.
+TinyFish is the sole default URL fetcher, invoked by `api_pipeline.py fetch`; the agent does not pre-scrape or load multiple scraping skills. Firecrawl MCP is the first backup and explicit `fetch --scraper jina` is the last, both managed sequentially by the launcher after extraction failure. Successful backup text is saved to a unique temporary file and Stage 1 reruns with `--file`. The shell pipeline itself fails on TinyFish errors because mounted MCP tools are available to the launcher, not directly to bash. Cache names include the scraper to avoid reusing legacy Jina/direct-fetch results as TinyFish output. No scraper guarantees access to every posting; all failures end in a request for pasted JD text.
 
 ### Why condensed catalog + extraction
 

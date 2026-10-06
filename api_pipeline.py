@@ -1096,13 +1096,13 @@ def run_fix(args):
 
 # ─── URL Fetch ──────────────────────────────────────────────────────────────
 
-def fetch_jd_from_url(url: str) -> str:
-    """Fetch JD text from URL using Jina Reader."""
+def fetch_jd_from_url(url: str, scraper: str = "tinyfish") -> str:
+    """Fetch with one explicit scraper; the launcher handles backup selection."""
     import hashlib
     cache_dir = SKILL_DIR / "okf" / ".jd_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     url_hash = hashlib.sha1(url.encode()).hexdigest()
-    cache_path = cache_dir / f"{url_hash}.txt"
+    cache_path = cache_dir / f"{scraper}-{url_hash}.txt"
 
     if cache_path.exists():
         import time as _time
@@ -1113,24 +1113,30 @@ def fetch_jd_from_url(url: str) -> str:
                 print(f"[fetch] Cache hit ({len(cached)} bytes, {age/3600:.0f}h old)", file=sys.stderr)
                 return cached
 
-    jina_url = f"https://r.jina.ai/{url}"
-    print(f"[fetch] Fetching via Jina Reader: {url}", file=sys.stderr)
+    print(f"[fetch] Fetching via {scraper}: {url}", file=sys.stderr)
     try:
-        req = urllib.request.Request(jina_url, headers={
-            "Authorization": f"Bearer {os.getenv('JINA_API_KEY', '')}",
-        } if os.getenv("JINA_API_KEY") else {})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            content = resp.read().decode("utf-8", errors="replace")
-    except Exception as e:
-        print(f"[fetch] Jina Reader failed: {e}", file=sys.stderr)
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        if scraper == "tinyfish":
+            result = subprocess.run(
+                ["tinyfish", "fetch", "content", "get", "--format", "markdown", url],
+                capture_output=True, text=True, timeout=API_TIMEOUT, check=True,
+            )
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end="")
+            documents = json.loads(result.stdout).get("results", [])
+            content = documents[0].get("text", "") if documents else ""
+        elif scraper == "jina":
+            req = urllib.request.Request(f"https://r.jina.ai/{url}", headers={
+                "Authorization": f"Bearer {os.getenv('JINA_API_KEY', '')}",
+            } if os.getenv("JINA_API_KEY") else {})
             with urllib.request.urlopen(req, timeout=30) as resp:
                 content = resp.read().decode("utf-8", errors="replace")
-        except Exception as e2:
-            print(f"[fetch] Direct fetch also failed: {e2}", file=sys.stderr)
-            return ""
+        else:
+            raise ValueError(f"Unknown scraper: {scraper}")
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError) as error:
+        print(f"[fetch] {scraper} failed: {error}", file=sys.stderr)
+        return ""
 
+    content = content.strip()
     if len(content) < 200:
         print(f"[fetch] Content too short ({len(content)} bytes)", file=sys.stderr)
         return ""
@@ -1142,7 +1148,7 @@ def fetch_jd_from_url(url: str) -> str:
 
 def run_fetch(args):
     """Fetch JD from URL and print to stdout."""
-    content = fetch_jd_from_url(args.url)
+    content = fetch_jd_from_url(args.url, args.scraper)
     if content:
         print(content)
         return 0
@@ -1154,7 +1160,7 @@ def run_fetch(args):
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="llm-cv direct API pipeline")
+    parser = argparse.ArgumentParser(description="llm-cv harness pipeline")
     subparsers = parser.add_subparsers(dest="step", required=True)
 
     # Step 1
@@ -1166,7 +1172,6 @@ def main():
     p1.add_argument("--source", default="Cold Apply")
     p1.add_argument("--language", default="English", choices=["English", "German"])
     p1.add_argument("--weak-tie", default="")
-    p1.add_argument("--model", default=DEFAULT_MODEL)
 
     # Step 2
     p2 = subparsers.add_parser("step2", help="Resume writer + ATS rescoring")
@@ -1178,7 +1183,6 @@ def main():
     p2.add_argument("--user-skills", default="")
     p2.add_argument("--score-boost", default="false", choices=["true", "false"])
     p2.add_argument("--initial-score", default="0")
-    p2.add_argument("--model", default=DEFAULT_MODEL)
     p2.add_argument("--progress-pos", type=int, default=0, help="tqdm bar position for parallel display")
 
     # Step 3
@@ -1186,20 +1190,18 @@ def main():
     p3.add_argument("--app-dir", required=True, help="Application folder path")
     p3.add_argument("--render", default="latex", choices=["latex", "reportfallback"])
     p3.add_argument("--language", default="English", choices=["English", "German"])
-    p3.add_argument("--model", default=DEFAULT_MODEL)
     p3.add_argument("--progress-pos", type=int, default=0, help="tqdm bar position for parallel display")
 
     # Fetch
-    pfetch = subparsers.add_parser("fetch", help="Fetch JD from URL via Jina Reader")
+    pfetch = subparsers.add_parser("fetch", help="Fetch JD via TinyFish (Jina only as an explicit backup)")
     pfetch.add_argument("--url", required=True, help="Job posting URL")
-    pfetch.add_argument("--model", default=DEFAULT_MODEL)
+    pfetch.add_argument("--scraper", choices=["tinyfish", "jina"], default="tinyfish")
 
     # Fix
     pf = subparsers.add_parser("fix", help="Fix Resume.yaml after parseability failure")
     pf.add_argument("--app-dir", required=True, help="Application folder path")
     pf.add_argument("--error", required=True, help="Error message from parseability audit")
     pf.add_argument("--language", default="English", choices=["English", "German"])
-    pf.add_argument("--model", default=DEFAULT_MODEL)
 
     args = parser.parse_args()
 

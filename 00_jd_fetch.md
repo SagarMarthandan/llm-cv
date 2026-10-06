@@ -1,67 +1,41 @@
 # Pipeline Step 0: JD Fetch (URL → Job Description Text)
 
-> **Rules:** Follow SKILL.md §"Read-Only Guardrail", §"Agent Execution Rules", §"YAML Safety Rules". Only write to `okf/.jd_cache/` in this step.
-
 ## Objective
-Fetch a job posting URL, extract clean JD text, validate it, and hand to Step 1. Fall back to manual paste if scraping fails.
+Extract the exact posting's JD with one primary scraper. Use backups only after failure; never load multiple scraping skills for a normal URL run.
 
 ## When to Run
-**Only** when user provides a URL. If user pastes raw JD text, skip Step 0 entirely → go to Step 1.
+Only when the user provides a URL. Pasted text and existing JD files bypass URL fetching.
 
-## Inputs
-- Job posting URL (any public job-board or careers page)
-- Optional: `JINA_API_KEY` env var for higher Jina rate limits
+## Primary: TinyFish inside the pipeline
+Pass the original URL to `run_pipeline.sh --url "<URL>"` with the user's configuration flags. The pipeline invokes:
 
-## Outputs
-- Clean JD text → handed to Step 1 as "pasted JD text" (Step 1 behavior unchanged)
-- `source_url` → Step 1 stores in `Job_Description.yaml`
-- Cache at `okf/.jd_cache/<sha1(url)>.txt` (7-day TTL)
-
-## ATS Vendor Inference (URL → vendor)
-`myworkdayjobs.com`→Workday, `personio.de`→Personio, `successfactors.eu`→SAP SuccessFactors, `greenhouse.io`→Greenhouse, `lever.co`→Lever, `taleo.net`→Taleo, `linkedin.com/jobs/*`→LinkedIn, none→`Unknown`. Vendor decides scrape strategy.
-
-## Strategy Routing
-- **JS-SPA vendors** (LinkedIn, Workday, Greenhouse, Lever, SuccessFactors, Personio): Skip `webfetch` (returns empty shell). Go straight to Jina Reader. If Jina fails → manual paste.
-- **Unknown vendors** (company careers page, static HTML): Try `webfetch` first. If fails validation → Jina fallback. If Jina fails → manual paste.
-
-## Execution
-
-### 1. Cache Lookup
-`hash = sha1(url)`. Check `okf/.jd_cache/<hash>.txt`: if exists, <7 days old, passes validation → use directly. Otherwise → scrape.
-
-### 2. Scrape
-
-**Strategy A — Jina Reader** (JS-SPA vendors, or fallback from failed webfetch):
 ```bash
-# Keyless (rate-limited)
-/home/sagar/Skills/llm-cv/.venv/bin/python -c "import urllib.request; req=urllib.request.Request('https://r.jina.ai/<URL>'); print(urllib.request.urlopen(req, timeout=30).read().decode('utf-8','ignore'))" > "$TEMP/jd_scrape.txt"
-
-# With API key
-/home/sagar/Skills/llm-cv/.venv/bin/python -c "import urllib.request, os; req=urllib.request.Request('https://r.jina.ai/<URL>', headers={'Authorization':'Bearer ' + os.environ.get('JINA_API_KEY', '')}); print(urllib.request.urlopen(req, timeout=30).read().decode('utf-8','ignore'))" > "$TEMP/jd_scrape.txt"
+.venv/bin/python api_pipeline.py fetch --url "<URL>"
 ```
-Jina returns clean markdown of fully rendered page. **Hard failures (no retry):** HTTP 429, 401/403, 5xx, auth wall text ("Sign in to view"), timeout → next strategy.
 
-**Strategy B — webfetch** (static/Unknown vendors only):
-Use agent's built-in `webfetch` tool. Plain HTTP GET with HTML-to-text. **Skip entirely** for JS-SPA vendors. **Hard failures:** HTTP 4xx/5xx, body <200 chars, timeout → next strategy.
+This runs `tinyfish fetch content get --format markdown` once. Do not pre-scrape with another tool, search for alternate postings, or route by ATS vendor. TinyFish CLI and its authentication must be available.
 
-### 3. Validation (JD-shape heuristic)
-Text must pass ALL:
-1. **Length:** >200 chars after stripping whitespace
-2. **Role title:** Contains 1-6 word token sequence with ≥1 of: engineer, developer, analyst, scientist, manager, lead, architect, consultant, specialist, designer, administrator, head, director, officer, intern, working student, werkstudent, praktikant (case-insensitive)
-3. **Company signal:** Company name token near top OR `company:`/`Unternehmen:`/`Firma:`/`about us`/`Über uns`
-4. **JD section markers:** ≥2 of: requirements, qualifications, responsibilities, experience, skills, we are looking for, about the role, your profile, your tasks, anforderungen, profil, aufgaben, wir suchen, über die rolle, ihr profil
-5. **Not login/error page:** `<form>`/`<input>`/`Sign in`/`Log in`/`404`/`403`/`Access Denied`/`Not Found` tokens <30% of word count
+## Cache
+Successful text is cached at `okf/.jd_cache/tinyfish-<sha1(url)>.txt` for seven days. Jina uses `jina-<sha1(url)>.txt`; legacy unprefixed cache entries are not reused. Text shorter than 200 stripped characters is rejected and not cached.
 
-Pass → write to cache, hand to Step 1. Fail → next strategy or manual paste.
+## Failure-only backup order
+The launcher handles backups; the shell pipeline does not have direct access to the mounted Firecrawl MCP tool.
 
-### 4. Final Fallback: Manual Paste
-If all strategies fail/skip:
-> Could not extract a JD from `<url>` (reason: `<short reason>`). Please paste the full job description text below.
+1. **Firecrawl:** If TinyFish fails or the returned text is not the requested JD, call the mounted `firecrawl_scrape` MCP tool once for the same URL with `formats: ["markdown"]`, `onlyMainContent: true`, and `maxAge: 0`. Do not load a separate scraping skill.
+2. **Jina:** Only if Firecrawl also fails or returns unusable content, run:
 
-Do NOT store manually-pasted text in URL cache. Only `source_url` is recorded.
+   ```bash
+   .venv/bin/python api_pipeline.py fetch --url "<URL>" --scraper jina
+   ```
+
+   Jina uses its Reader endpoint; `JINA_API_KEY` is optional. There is no direct-HTML fallback.
+3. **Manual paste:** If all three fail, report the extraction failure and ask the user to paste the full JD.
+
+## Backup handoff
+Save successful backup text to a unique `/tmp/llm-cv-jd-<slug>.txt` file. Rerun Stage 1 with `--file` and the same configuration answers. Keep the original source URL with the archived JD. Do not cache manually pasted text under the URL.
+
+## Content check
+Verify the returned content identifies the requested company and role and includes the posting's responsibilities/requirements. Reject login pages, access-denied pages, listing pages, empty shells, and unrelated postings. Do not invent missing JD content or silently select another job.
 
 ## Handoff to Step 1
-Proceed to Step 1 with: JD text (treated as pasted), `source_url`, detected ATS vendor. Step 1 runs unchanged.
-
----
-**Next:** Proceed to Step 1 — read `01_ats_and_jd_archival.md`.
+The pipeline passes the extracted text to Step 1 for ATS analysis and JD archival. Normal URL runs use TinyFish only; Firecrawl and Jina remain sequential failure-only backups.
