@@ -4,7 +4,7 @@ ATS-optimized resume and cover letter tailoring pipeline. Paste a job descriptio
 
 ## How It Works
 
-The agent asks 4 configuration questions, then launches `run_pipeline.sh` in two stages. The pipeline makes 3 direct OpenRouter API calls via `api_pipeline.py` — no OMP sessions, no subagent spawning. A 10.5K-token static system prompt (step docs, golden examples, constraints) is sent with `cache_control` on every call, so OpenRouter caches the prefix at ~10x discount after the first call.
+The agent asks 4 configuration questions, then launches `run_pipeline.sh` in two stages. The pipeline makes 3 isolated OMP harness calls via `api_pipeline.py`, using OMP's configured default model and authentication. Each call receives the shared system prompt (step docs, golden examples, constraints); Python parses the response and writes the application files.
 
 ```
 User says "llm-cv" + JD (URL, file, or pasted text)
@@ -14,7 +14,7 @@ User says "llm-cv" + JD (URL, file, or pasted text)
     │
     ├── Stage 1: run_pipeline.sh --stage 1 --file /tmp/llm-cv-jd.txt ...
     │       │
-    │       ├── Step 1 API call: ATS + JD archival + project ranking (reads 21KB condensed catalog)
+    │       ├── Step 1 harness call: ATS + JD archival + project ranking (reads 21KB condensed catalog)
     │       ├── [bash] Compile Step 1 PDFs + extract selected projects → selected_projects.yaml
     │       └── Prints APP_DIR, SKILL_GAPS, ATS_SCORE to stdout
     │
@@ -22,12 +22,12 @@ User says "llm-cv" + JD (URL, file, or pasted text)
     │
     └── Stage 2: run_pipeline.sh --stage 2 --app-dir ... --stuffing ... --force
             │
-            ├── Step 2 API call: Resume writer + ATS rescoring (reads 7KB selected_projects.yaml)  ┐ parallel
-            ├── Step 3 API call: Cover letter writer (reads project_info.md)                       ┘
+            ├── Step 2 harness call: Resume writer + ATS rescoring (reads 7KB selected_projects.yaml)  ┐ parallel
+            ├── Step 3 harness call: Cover letter writer (reads project_info.md)                       ┘
             └── [bash] Compile all PDFs + fix loop + photo stamp + watermark check + Obsidian sync + CSV tracker
 ```
 
-3 API calls total (+ optional fix calls). Model: qwen/qwen3.8-flash with reasoning disabled. Cost: ~$0.01/run. Time: ~1-2 min/run.
+3 model calls total (+ optional fix calls). No pipeline-specific model override: OMP selects its default. Cost, latency, reasoning, and caching depend on the harness model/provider.
 
 ## Quick Start
 
@@ -74,7 +74,7 @@ Outputs land in `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`.
 
 - **Python 3.10+** with `pyyaml`, `reportlab`, `pypdf`, `tqdm` (in `.venv/`)
 - **TeX Live** (`pdflatex`) for LaTeX-mode PDFs
-- **OpenRouter API key** stored in OMP's SQLite DB (`~/.omp/agent/agent.db`, table `auth_credentials`, provider `openrouter`)
+- **OMP CLI** (`omp` on `PATH`) with a configured default model and working provider authentication
 - **Firecrawl MCP tool** available (for URL-based JD scraping)
 - **Candidate photo** (`okf/SAGAR_MARTHANDAN_foto.jpg`) — stamped onto LaTeX-mode resume PDFs
 
@@ -88,17 +88,17 @@ sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-lat
 | Step | What happens | Outputs |
 |:---|:---|:---|
 | **0** (optional) | Agent scrapes JD from URL via Firecrawl MCP tool. Fallback: pipeline fetches via Jina Reader. | Clean JD text at `/tmp/llm-cv-jd.txt` |
-| **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (15 → top 6 from condensed 21KB catalog), JD archival, location tailoring. Direct API call. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
+| **1** | ATS scoring (4-category matrix, 0-100), archetype detection, LLM project ranking (15 → top 6 from condensed 21KB catalog), JD archival, location tailoring. Harness call. | `ATS_Report.yaml/.pdf`, `Job_Description.yaml/.pdf`, `project_info.md` |
 | **[bash]** | Compile Step 1 PDFs. Extract full project data for ranked projects via `extract_projects.py`. | `selected_projects.yaml` (~7KB) |
-| **2** | Resume rewrite from `selected_projects.yaml` (7KB). Skill gap closure, keyword stuffing, 3-bullet project summaries with mandatory quantitative metrics. Post-rewrite ATS rescoring. Direct API call. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf` |
-| **3** (parallel with 2) | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. Direct API call. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
+| **2** | Resume rewrite from `selected_projects.yaml` (7KB). Skill gap closure, keyword stuffing, 3-bullet project summaries with mandatory quantitative metrics. Post-rewrite ATS rescoring. Harness call. | `Resume.yaml`, `SAGAR_MARTHANDAN_Resume.pdf` |
+| **3** (parallel with 2) | Cover letter generation (DIN 5008 Form B for German, business letter for English), metric-grounded prose. Harness call. | `Cover_Letter.yaml`, `SAGAR_MARTHANDAN_Cover_Letter.pdf` |
 | **[bash]** | Compile resume (pdflatex x2 → stamp photo → parseability audit → watermark check). Compile cover letter. Fix loop if parseability fails. Obsidian sync + folder sort. | Final PDFs, `Layout_Audit_Report.yaml`, `Parseability_Report.yaml/.pdf` |
 
-## Direct API Architecture
+## Harness Architecture
 
-`api_pipeline.py` makes 3 direct OpenRouter API calls. No OMP sessions, no subagent spawning. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Bash handles all parallelism, compilation, and coordination. Each API call and step shows a live `tqdm` progress bar on stderr (elapsed time, retry status, step phase).
+`api_pipeline.py` invokes `omp --print --mode json` once per step, without `--model` or `--provider`. Each invocation is ephemeral, with tools, extensions, skills, and rules disabled. Prompts use unique temporary files; Python extracts the final assistant text from JSON events and writes the application YAML. Bash handles parallelism, compilation, and coordination. The progress bar reports elapsed time; stderr reports the actual provider/model used. `LLM_CV_API_TIMEOUT` remains the per-call timeout in seconds (default 300). `LLM_CV_MODEL` and `OPENROUTER_API_KEY` no longer select the pipeline model or its credentials.
 
-### Static-First Cache Architecture
+### Shared System Prompt
 
 A 10.5K-token `SYSTEM_PROMPT` is loaded once at module import via `_load_system_prompt()`. It contains:
 - Full step docs (02_resume_and_visual_audit.md, 03_cover_letter.md)
@@ -106,7 +106,7 @@ A 10.5K-token `SYSTEM_PROMPT` is loaded once at module import via `_load_system_
 - Guardrails, resume constraints, German/US schema templates
 - John Deere golden resume + cover letter as few-shot examples
 
-Sent as system message with `cache_control: {"type": "ephemeral"}` in content array format. After the first call, OpenRouter caches the prefix at ~10x discount. Cache hits observed: 0% (cold) → 60% → 80% across a run.
+Sent via OMP's `--system-prompt` option. Authentication, reasoning, token limits, and provider caching are handled by OMP rather than a pipeline-specific OpenRouter payload.
 
 Variable user message contains only JD, ATS report, config, task instructions — no guardrails or constraints (those are in the static system prompt).
 
@@ -120,7 +120,7 @@ Keyword stuffing is asked AFTER Step 1 when skill gaps are known, not blind upfr
 |:---|:---|:---|:---|:---|
 | Single-session (old) | ~8M | $0.13 | ~63 | Agent handles all steps in one conversation |
 | Wrapper v2 (OMP sessions) | ~2M | $0.04 | ~29 | 3 OMP sessions + bash, CLI flags |
-| **Direct API v4** | **~50K** | **~$0.01** | **3 + fix** | 3 OpenRouter calls + bash compilation. Prompt caching. |
+| Harness default (current) | Model-dependent | Provider-dependent | 3 + fix | Isolated OMP invocations + bash compilation; no pipeline model override |
 
 ### Compilation
 
@@ -230,7 +230,7 @@ llm-cv/
 ├── 02_resume_and_visual_audit.md     # Step 2: Resume rewrite + audit
 ├── 03_cover_letter.md                # Step 3: Cover letter
 ├── 99_completion_checklist.md        # Post-pipeline verification (lazy-loaded)
-├── api_pipeline.py                   # Direct OpenRouter API calls (3 steps + fix)
+├── api_pipeline.py                   # Harness model calls (3 steps + fix)
 ├── run_pipeline.sh                   # 2-stage bash orchestrator (615 lines)
 ├── lib/compile.sh                    # Compilation functions (199 lines, sourced)
 ├── extract_projects.py               # Condensed catalog + selected projects extraction

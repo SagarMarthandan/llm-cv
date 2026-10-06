@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-api_pipeline.py — Direct OpenRouter API calls for llm-cv pipeline.
+api_pipeline.py — Harness-backed model calls for llm-cv pipeline.
 
-Architecture: Static-First with prompt caching.
-  - Large SYSTEM_PROMPT (~15K tokens) loaded once at module import, identical
-    across all runs, sent as the system message with cache_control. After the
-    first call, OpenRouter caches this prefix at ~10x discount.
-  - Variable user message (~2-4K tokens) contains only JD, ATS report, config,
-    and task-specific instructions.
+Architecture: Shared system prompt with one isolated OMP invocation per step.
+  - Large SYSTEM_PROMPT loaded once at module import.
+  - OMP selects its configured default model and handles provider authentication.
+  - Variable user message contains JD, ATS report, config, and task instructions.
 
 Usage:
     python api_pipeline.py step1 --jd-file /tmp/jd.txt --render latex \
@@ -26,6 +24,8 @@ import re
 import sys
 import time
 import threading
+import subprocess
+import tempfile
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -36,34 +36,9 @@ SKILL_DIR = Path(__file__).parent.resolve()
 APPLICATIONS_DIR = Path(os.getenv("LLM_CV_APPLICATIONS_DIR", "/home/sagar/Applications"))
 VENV_PYTHON = str(SKILL_DIR / ".venv" / "bin" / "python")
 
-# ─── API Configuration ───────────────────────────────────────────────────────
+# ─── Harness Configuration ───────────────────────────────────────────────────
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = os.getenv("LLM_CV_MODEL", "qwen/qwen3.8-flash")
 API_TIMEOUT = int(os.getenv("LLM_CV_API_TIMEOUT", "300"))
-
-
-def get_api_key() -> str:
-    """Get OpenRouter API key from env or OMP config."""
-    key = os.getenv("OPENROUTER_API_KEY", "")
-    if key:
-        return key
-    try:
-        import sqlite3
-        db_path = Path.home() / ".omp" / "agent" / "agent.db"
-        if db_path.exists():
-            db = sqlite3.connect(str(db_path))
-            cursor = db.cursor()
-            cursor.execute("SELECT data FROM auth_credentials WHERE provider='openrouter'")
-            row = cursor.fetchone()
-            db.close()
-            if row:
-                data = json.loads(row[0])
-                return data.get("key", "")
-    except Exception:
-        pass
-    print("ERROR: No OpenRouter API key found. Set OPENROUTER_API_KEY env var.", file=sys.stderr)
-    sys.exit(1)
 
 
 # ─── File Reading Helpers ────────────────────────────────────────────────────
@@ -148,8 +123,7 @@ def _load_system_prompt() -> str:
     """Build the large static system prompt with step docs, schemas, and golden examples.
 
     This is loaded ONCE at module import and sent as the system message for every
-    API call. Identical bytes every time → OpenRouter caches the prefix → ~10x
-    input token discount after the first call.
+    harness invocation. Provider caching is managed by the harness.
     """
     # Load step docs
     step2_doc = read_file(SKILL_DIR / "02_resume_and_visual_audit.md")
@@ -287,62 +261,20 @@ The Independent entry uses project_bullets (dicts), NOT strings:
 SYSTEM_PROMPT = _load_system_prompt()
 
 
-# ─── API Call ────────────────────────────────────────────────────────────────
+# ─── Harness Call ────────────────────────────────────────────────────────────
 
-def call_openrouter(prompt: str, system: str = None, model: str = None,
-                    max_tokens: int = 16000, temperature: float = 0.3,
-                    max_retries: int = 4, progress_pos: int = 0) -> dict:
-    """Make a single API call to OpenRouter with retry on 429.
-
-    The system message is sent with cache_control to enable prompt caching.
-    Returns the full response dict.
-    """
-    api_key = get_api_key()
-    model = model or DEFAULT_MODEL
+def call_harness(prompt: str, system: str = None, progress_pos: int = 0) -> str:
+    """Return the final assistant text using OMP's default model."""
     system = system or SYSTEM_PROMPT
-
-    # System message with cache_control for prompt caching.
-    # Content as array of objects to attach cache_control to the static prefix.
-    messages = [
-        {
-            "role": "system",
-            "content": [
-                {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
-            ]
-        },
-        {"role": "user", "content": prompt}
-    ]
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        # Disable reasoning for speed — pipeline steps are structured tasks
-        "reasoning": {"enabled": False},
-        "include_reasoning": False,
-    }
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/SagarMarthandan/llm-cv",
-        "X-Title": "llm-cv pipeline",
-    }
-
-    data = json.dumps(payload).encode("utf-8")
-
-    model_short = model.split("/")[-1]
     pbar = tqdm(
         total=1, unit="req",
-        desc=f"  ↳ API: {model_short}",
+        desc="  ↳ OMP: harness default",
         file=sys.stderr,
         leave=False,
         position=progress_pos,
         bar_format="{desc} |{bar}| {elapsed} {postfix}",
     )
 
-    # Background thread to refresh elapsed time while HTTP request blocks
     stop_event = threading.Event()
     def _tick():
         while not stop_event.wait(0.5):
@@ -352,83 +284,54 @@ def call_openrouter(prompt: str, system: str = None, model: str = None,
 
     start = time.time()
     try:
-        for attempt in range(max_retries + 1):
-            pbar.set_postfix_str(f"attempt {attempt+1}/{max_retries+1}")
-            req = urllib.request.Request(OPENROUTER_URL, data=data, headers=headers, method="POST")
-            try:
-                with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
-                    result = json.loads(resp.read().decode("utf-8"))
-                    break
-            except urllib.error.HTTPError as e:
-                body = e.read().decode("utf-8", errors="replace")
-                if e.code == 429 and attempt < max_retries:
-                    wait = 2 ** attempt + 1
-                    pbar.set_postfix_str(f"429, retry in {wait}s")
-                    time.sleep(wait)
-                    continue
-                pbar.set_postfix_str(f"HTTP {e.code}")
-                print(f"[api] HTTP {e.code}: {body[:500]}", file=sys.stderr)
-                raise
-            except Exception as e:
-                if attempt < max_retries:
-                    wait = 2 ** attempt
-                    pbar.set_postfix_str(f"error, retry in {wait}s")
-                    time.sleep(wait)
-                    continue
-                pbar.set_postfix_str(f"error: {e}")
-                print(f"[api] Error: {e}", file=sys.stderr)
-                raise
-        else:
-            raise RuntimeError(f"API call failed after {max_retries + 1} attempts")
+        with tempfile.TemporaryDirectory(prefix="llm-cv-harness-") as workspace:
+            prompt_path = Path(workspace) / "prompt.txt"
+            prompt_path.write_text(prompt, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    "omp", "--print", "--mode", "json", "--no-session",
+                    "--no-tools", "--no-extensions", "--no-skills", "--no-rules",
+                    "--no-title", "--system-prompt", system, f"@{prompt_path}",
+                ],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                timeout=API_TIMEOUT,
+                check=True,
+            )
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
 
+        message = None
+        for line in result.stdout.splitlines():
+            event = json.loads(line)
+            if event.get("type") == "message_end":
+                candidate = event.get("message", {})
+                if candidate.get("role") == "assistant":
+                    message = candidate
+        if message is None:
+            raise RuntimeError("OMP returned no assistant response")
+        if message.get("stopReason") in ("error", "aborted", "length"):
+            raise RuntimeError(message.get("errorMessage") or
+                               f"OMP response stopped: {message['stopReason']}")
+        content = "".join(
+            block.get("text", "") for block in message.get("content", [])
+            if block.get("type") == "text"
+        )
+        if not content.strip():
+            raise RuntimeError("OMP returned an empty assistant response")
         pbar.update(1)
+        print(f"[harness] {time.time() - start:.1f}s — "
+              f"{message.get('provider')}/{message.get('model')}", file=sys.stderr)
+        return content
+    except subprocess.CalledProcessError as error:
+        if error.stderr:
+            print(error.stderr, file=sys.stderr, end="")
+        raise
     finally:
         stop_event.set()
         ticker.join(timeout=1)
         pbar.close()
-
-    elapsed = time.time() - start
-    usage = result.get("usage", {})
-    cached = usage.get("prompt_tokens_details", {}).get("cached_tokens", 0)
-    prompt_tokens = usage.get("prompt_tokens", 0)
-    completion_tokens = usage.get("completion_tokens", 0)
-    cost = usage.get("cost", 0)
-    cache_pct = (cached / prompt_tokens * 100) if prompt_tokens else 0
-    print(f"[api] {elapsed:.1f}s — prompt={prompt_tokens:,} completion={completion_tokens:,} "
-          f"cached={cached:,} ({cache_pct:.0f}%) cost=${cost:.4f}", file=sys.stderr)
-
-    return result
-
-
-def extract_yaml_from_response(response: dict) -> str:
-    """Extract YAML content from the API response."""
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-    # Try to extract YAML from code blocks
-    yaml_match = re.search(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
-    if yaml_match:
-        return yaml_match.group(1).strip()
-
-    # Try to extract from first --- to end
-    yaml_match = re.search(r'^---\s*\n(.*)', content, re.DOTALL | re.MULTILINE)
-    if yaml_match:
-        return yaml_match.group(1).strip()
-
-    # If content looks like YAML already (starts with a key:)
-    if re.match(r'^[a-zA-Z_]+:\s', content):
-        return content.strip()
-
-    # Fallback: return the whole content
-    return content.strip()
-
-
-def extract_markdown_from_response(response: dict) -> str:
-    """Extract markdown content from the API response."""
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-    md_match = re.search(r'```(?:markdown|md)?\s*\n(.*?)```', content, re.DOTALL)
-    if md_match:
-        return md_match.group(1).strip()
-    return content.strip()
 
 
 def validate_yaml(yaml_text: str) -> bool:
@@ -997,12 +900,11 @@ def run_step1(args):
         )
         pbar.update(1)
 
-        pbar.set_postfix_str("Calling API")
-        response = call_openrouter(prompt, max_tokens=16000, progress_pos=progress_pos + 1)
+        pbar.set_postfix_str("Calling harness")
+        content = call_harness(prompt, progress_pos=progress_pos + 1)
         pbar.update(1)
 
         pbar.set_postfix_str("Parsing response")
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
         yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
         md_blocks = re.findall(r'```(?:markdown|md)?\s*\n(.*?)```', content, re.DOTALL)
@@ -1087,12 +989,11 @@ def run_step2(args):
         )
         pbar.update(1)
 
-        pbar.set_postfix_str("Calling API")
-        response = call_openrouter(prompt, max_tokens=16000, progress_pos=progress_pos + 1)
+        pbar.set_postfix_str("Calling harness")
+        content = call_harness(prompt, progress_pos=progress_pos + 1)
         pbar.update(1)
 
         pbar.set_postfix_str("Parsing response")
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
         yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
 
@@ -1142,12 +1043,11 @@ def run_step3(args):
         )
         pbar.update(1)
 
-        pbar.set_postfix_str("Calling API")
-        response = call_openrouter(prompt, max_tokens=8000, progress_pos=progress_pos + 1)
+        pbar.set_postfix_str("Calling harness")
+        content = call_harness(prompt, progress_pos=progress_pos + 1)
         pbar.update(1)
 
         pbar.set_postfix_str("Writing file")
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
         yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
 
@@ -1176,12 +1076,11 @@ def run_fix(args):
         prompt = build_fix_prompt(app_dir, args.error, args.language)
         pbar.update(1)
 
-        pbar.set_postfix_str("Calling API")
-        response = call_openrouter(prompt, max_tokens=16000, progress_pos=progress_pos + 1)
+        pbar.set_postfix_str("Calling harness")
+        content = call_harness(prompt, progress_pos=progress_pos + 1)
         pbar.update(1)
 
         pbar.set_postfix_str("Writing file")
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
         yaml_blocks = re.findall(r'```ya?ml\s*\n(.*?)```', content, re.DOTALL)
         if yaml_blocks:

@@ -2,13 +2,13 @@
 
 ## Overview
 
-LLM-CV is an ATS-optimized resume and cover letter generation pipeline. A 2-stage bash orchestrator (`run_pipeline.sh`) makes 3 direct OpenRouter API calls via `api_pipeline.py`. No OMP sessions, no subagent spawning. A 10.5K-token static system prompt with prompt caching gives the model full context (step docs, golden examples, constraints) at ~10x discount after the first call.
+LLM-CV is an ATS-optimized resume and cover letter generation pipeline. A 2-stage bash orchestrator (`run_pipeline.sh`) makes 3 isolated OMP harness calls via `api_pipeline.py`. Each uses the harness's configured default model, authentication, and reasoning settings, with a shared system prompt containing step docs, golden examples, and constraints.
 
 ### Design Philosophy
 
 - **Agent is a launcher, not a worker:** When the user says "llm-cv" with a JD, the agent's only job is to ask 4 configuration questions via `ask`, scrape the JD via Firecrawl (if URL), then launch `run_pipeline.sh` in two stages with one `ask` in between for keyword stuffing.
-- **Direct API calls over OMP sessions:** 3 OpenRouter API calls replace 29 OMP session calls. Cost dropped from $0.04 to $0.01/run. Time dropped from 25 min to 1-2 min.
-- **Static-First prompt caching:** 10.5K-token system prompt (step docs, golden examples, constraints) sent with `cache_control` on every call. OpenRouter caches the prefix at ~10x discount. Cache hits: 0% (cold) → 60% → 80% across a run.
+- **Harness model selection:** No pipeline model/provider override. OMP handles provider authentication and chooses its configured default model.
+- **Shared system prompt:** The same prompt is supplied through `--system-prompt`; caching and token limits depend on the harness provider.
 - **2-stage split:** Keyword stuffing asked AFTER Step 1 when skill gaps are known. Stage 1 prints APP_DIR, SKILL_GAPS, ATS_SCORE. Agent reads these, asks user, launches stage 2.
 - **LLM judgment over algorithmic matching:** The LLM ranker correctly distinguishes AI roles from DE roles, prioritizes Power BI projects for BI roles, and understands domain relevance — all without synonyms, allowlists, or transferable skills definitions.
 - **Condensed catalog for ranking, extracted subset for writing:** Step 1 reads a 21KB condensed catalog (no bullets) for ranking. Bash then extracts full bullet data for only the 6 ranked projects into a 7KB `selected_projects.yaml` for Step 2.
@@ -28,10 +28,10 @@ User says "llm-cv" + JD (URL, file, or pasted text)
     │
     ├── Stage 1: run_pipeline.sh --stage 1 --file /tmp/llm-cv-jd.txt ...
     │       │
-    │       ├── Step 1 API call (qwen/qwen3.8-flash, reasoning disabled)
+    │       ├── Step 1 harness call (OMP default model)
     │       │     reads: 10.5K system prompt + condensed catalog (21KB) + base resume + JD
     │       │     writes: ATS_Report.yaml, Job_Description.yaml, project_info.md
-    │       │     ~21K input tokens, ~2.3K output, 0% cache (cold start)
+    │       │     token usage and caching depend on the harness model/provider
     │       │
     │       ├── [bash] Compile Step 1 PDFs (ATS_Report.pdf, Job_Description.pdf)
     │       ├── [bash] extract_projects.py → selected_projects.yaml (7KB)
@@ -41,18 +41,18 @@ User says "llm-cv" + JD (URL, file, or pasted text)
     │
     └── Stage 2: run_pipeline.sh --stage 2 --app-dir ... --stuffing ... --force
             │
-            ├── Step 2 API call (resume writer + ATS rescoring)                    ┐
+            ├── Step 2 harness call (resume writer + ATS rescoring)                ┐
             │     reads: 10.5K system prompt + selected_projects.yaml (7KB)         │ parallel
             │            + ATS_Report.yaml + JD + base resume                       │
             │     writes: Resume.yaml, appends post_rewrite_ats_score               │
-            │     ~19K input, ~1.6K output, 60% cache hit                           │
+            │     model/provider selected by OMP                                  │
             │                                                                       │
-            ├── Step 3 API call (cover letter writer)                              ┘
+            ├── Step 3 harness call (cover letter writer)                          ┘
             │     reads: 10.5K system prompt + ATS_Report.yaml + JD + project_info
             │     writes: Cover_Letter.yaml
-            │     ~14K input, ~0.5K output, 80% cache hit
+            │     model/provider selected by OMP
             │
-            ├── [bash] wait for both API calls
+            ├── [bash] wait for both harness calls
             ├── [bash] Compile resume: yaml_to_pdf --tex-only → check-tex → pdflatex x2 → stamp_photo → parseability → watermark
             ├── [bash] Compile cover letter: yaml_to_pdf → watermark
             ├── [bash] Fix loop: if parseability fails, call api_pipeline.py fix (max 2 attempts)
@@ -116,7 +116,7 @@ wait "$STEP3_PID"
 
 ---
 
-## Static-First Cache Architecture
+## Shared System Prompt Architecture
 
 ### System prompt composition (~10.8K tokens)
 
@@ -134,18 +134,11 @@ SYSTEM_PROMPT = _load_system_prompt()
     └── Golden example: John Deere cover letter (few-shot anchor)
 ```
 
-### Cache behavior
+### Harness behavior
 
-The system message is sent as `[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]`. OpenRouter caches this prefix after the first call. Subsequent calls in the same run hit the cache:
+`call_harness()` launches `omp --print --mode json` without `--model` or `--provider`. Each call uses a unique temporary workspace and prompt file, disables session persistence, tools, extensions, skills, and rules, and extracts text from the final assistant `message_end` event. Errors, aborted/truncated responses, and missing text fail the step. The actual provider/model is logged to stderr.
 
-| Call | Input tokens | Cached | Cache % | Cost |
-|:---|:---|:---|:---|:---|
-| Step 1 | ~21K | 0 | 0% (cold) | $0.0048 |
-| Step 2 | ~19K | ~11K | 60% | $0.0021 |
-| Step 3 | ~14K | ~11K | 80% | $0.0008 |
-| Fix (if needed) | ~2K | 0 | 0% | $0.0008 |
-
-Total: ~$0.0085/run (3 calls + optional fix).
+OMP manages authentication, reasoning, token limits, and caching. Costs and cache hit rates from the former Qwen/OpenRouter backend are not guarantees for the configured harness model. `LLM_CV_API_TIMEOUT` remains the call deadline in seconds (default 300); `LLM_CV_MODEL` is no longer used.
 
 ### Variable user message
 
@@ -164,8 +157,8 @@ No guardrails or constraints in the user message — those are in the static sys
 
 | Technique | What it does | Impact |
 |:---|:---|:---|
-| **Direct API calls** | 3 OpenRouter calls replace 29 OMP session calls | ~$0.03/run saved, ~20 min faster |
-| **Static-First caching** | 10.5K system prompt cached at 10x discount | ~60-80% cache hit on calls 2+3 |
+| **Harness calls** | 3 isolated OMP invocations, one per generation step | Default harness model/authentication; no pipeline-specific provider |
+| **Shared system prompt** | Identical instructions supplied to each invocation | Provider-managed caching |
 | **2-stage split** | Stuffing asked post-Step-1 with real gaps | Better stuffing decisions, no blind guessing |
 | **Bash compilation** | PDF compilation, parseability, watermark, sync in bash (0 tokens) | ~1M tokens saved vs agent-handled compilation |
 | **Condensed catalog** | Step 1 reads 21KB catalog (no bullets) instead of 49KB | ~28KB context saved |
@@ -177,7 +170,7 @@ No guardrails or constraints in the user message — those are in the static sys
 |:---|:---|:---|:---|:---|
 | Single-session (old) | ~8M | $0.13 | ~63 | 25 min |
 | Wrapper v2 (OMP sessions) | ~2M | $0.04 | ~29 | 10 min |
-| **Direct API v4** | **~50K** | **~$0.01** | **3 + fix** | **1-2 min** |
+| Harness default (current) | Model-dependent | Provider-dependent | 3 + fix | Model-dependent |
 
 ---
 
@@ -234,7 +227,7 @@ After Step 1 ranks the top 6 projects, `extract_projects.py --from-project-info`
 
 ### Pipeline Scripts
 
-| `api_pipeline.py` | Direct OpenRouter API calls (~1320 lines). Static system prompt, 3 step builders, fix loop, URL fetch. tqdm progress bars on all API calls and step phases. |
+| `api_pipeline.py` | OMP harness calls. Shared system prompt, 3 step builders, fix loop, URL fetch. tqdm progress bars on model calls and step phases. |
 |:---|:---|
 | `run_pipeline.sh` | 2-stage bash orchestrator (615 lines). Arg parsing, stage routing, Step 1 launch, stuffing decision, Steps 2+3 parallel launch, fix loop, sync, summary. |
 | `lib/compile.sh` | Compilation functions (199 lines). Sourced by run_pipeline.sh. |
@@ -286,17 +279,17 @@ After Step 1 ranks the top 6 projects, `extract_projects.py --from-project-info`
 
 ## Design Decisions
 
-### Why direct API calls over OMP sessions
+### Why harness calls
 
-OMP sessions required 29 API calls per run (parent + 3 child sessions), each accumulating context. Direct API calls make 3 stateless requests with a cached system prompt. The model sees the same context (step docs, examples, constraints) without the session overhead. Cost: $0.01 vs $0.04. Time: 1-2 min vs 10 min.
+The pipeline must use OMP's configured default model and authentication rather than pinning a provider-specific model. Each step remains an isolated structured generation request: Python builds prompts, OMP returns assistant text, Python writes YAML, and bash compiles PDFs. No application-generation tool loop is needed.
 
 ### Why 2-stage split
 
 Keyword stuffing asked blind upfront often adds irrelevant skills. Asking after Step 1 shows the actual skill gaps from the ATS analysis, so the user makes an informed decision. Stage 1 prints `SKILL_GAPS` to stdout; the agent reads them and presents them in the stuffing `ask`.
 
-### Why Static-First caching
+### Why a shared system prompt
 
-The system prompt (10.5K tokens) is the same for all 3 steps. Sending it with `cache_control` lets OpenRouter cache it after the first call. Calls 2 and 3 read from cache at ~10x discount. Without caching, the system prompt would cost $0.0048 × 3 = $0.0144. With caching: $0.0048 + $0.0021 + $0.0008 = $0.0077.
+The system prompt is the same for all 3 steps, keeping constraints and examples consistent. OMP supplies it to the selected provider; provider caching behavior is not hardcoded in the pipeline.
 
 ### Why Firecrawl for JD scraping
 

@@ -1,3 +1,9 @@
+## Unreleased
+
+### Changed
+
+- Pipeline steps and resume fix calls now use `omp --print --mode json` without a model/provider override, replacing the hardcoded Qwen/OpenRouter path. OMP selects its configured default model and handles authentication and reasoning. Removed pipeline OpenRouter credential lookup and `LLM_CV_MODEL` selection; retained `LLM_CV_API_TIMEOUT` as the harness-call timeout. Calls use isolated temporary workspaces and report the actual provider/model. Two-stage orchestration, parallel resume/cover-letter generation, and compilation are unchanged.
+
 ## v4.2.0 — 2026-09-09
 
 ### Added

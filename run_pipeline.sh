@@ -1,17 +1,17 @@
 #!/bin/bash
 ###############################################################################
-# run_pipeline.sh — llm-cv Direct API Architecture (v4)
+# run_pipeline.sh — llm-cv Harness Architecture
 #
-# Replaces OMP agent sessions with direct OpenRouter API calls via
-# api_pipeline.py. 3 API calls total (step1, step2, step3) + optional fix
-# calls. Bash handles all parallelism, compilation, and coordination.
+# Uses the OMP default model via api_pipeline.py. 3 isolated model calls
+# total (step1, step2, step3) + optional fix calls. Bash handles all
+# parallelism, compilation, and coordination.
 #
 # Architecture:
-#   Step 1: ATS analysis + JD archival + project ranking (direct API call)
+#   Step 1: ATS analysis + JD archival + project ranking (harness call)
 #   [bash]  Compile Step 1 PDFs + extract selected projects
 #   [user]  Duplicate check + keyword stuffing + score-boost prompts
-#   Step 2: Resume writer + ATS rescoring (direct API call, parallel with Step 3)
-#   Step 3: Cover letter writer (direct API call, parallel with Step 2)
+#   Step 2: Resume writer + ATS rescoring (harness call, parallel with Step 3)
+#   Step 3: Cover letter writer (harness call, parallel with Step 2)
 #   [bash]  Compile all PDFs + fix loop + obsidian sync
 #
 # Usage:
@@ -186,7 +186,7 @@ fi
 
 
 ###############################################################################
-# api_pipeline.py — direct OpenRouter API calls (replaces OMP sessions)
+# api_pipeline.py — OMP harness calls using its default model
 ###############################################################################
 API_PY="$VENV_PYTHON $SCRIPT_DIR/api_pipeline.py"
 
@@ -196,7 +196,7 @@ API_PY="$VENV_PYTHON $SCRIPT_DIR/api_pipeline.py"
 source "$SCRIPT_DIR/lib/compile.sh"
 
 ###############################################################################
-# Step 1: ATS Analysis + JD Archival + Project Ranking (direct API call)
+# Step 1: ATS Analysis + JD Archival + Project Ranking (harness call)
 # Skipped in stage 2 (app-dir already exists from stage 1)
 ###############################################################################
 if [[ "$OPT_STAGE" != "2" ]]; then
@@ -217,7 +217,7 @@ if [[ "$JD_TEXT" == __JD_URL__:* ]]; then
     log "JD fetched (${#JD_TEXT} chars)"
 fi
 
-# Run Step 1 via direct API call
+# Run Step 1 via the harness default model
 STEP1_OUTPUT=$($API_PY step1 \
     --jd-file "$JD_TEMP" \
     --render "$render_mode" \
@@ -229,7 +229,7 @@ STEP1_OUTPUT=$($API_PY step1 \
 
 STEP1_EXIT=$?
 if [[ $STEP1_EXIT -ne 0 ]]; then
-    warn "Step 1 API call failed (exit $STEP1_EXIT). Log: /tmp/llm-cv-step1.log"
+    warn "Step 1 harness call failed (exit $STEP1_EXIT). Log: /tmp/llm-cv-step1.log"
     tail -30 /tmp/llm-cv-step1.log 2>/dev/null
     die "Step 1 failed."
 fi
@@ -422,9 +422,9 @@ else
 fi
 
 ###############################################################################
-# Step 2 + Step 3: Resume Writer + Cover Letter (parallel direct API calls)
+# Step 2 + Step 3: Resume Writer + Cover Letter (parallel harness calls)
 ###############################################################################
-log "=== Step 2: Resume Writer + ATS Rescoring (direct API) ==="
+log "=== Step 2: Resume Writer + ATS Rescoring (harness default) ==="
 log "=== Step 3: Cover Letter Writer (parallel with Step 2) ==="
 
 # Map stuffing choice to api_pipeline.py format
@@ -457,7 +457,7 @@ $API_PY step3 \
     > /tmp/llm-cv-step3.log 2> >(tee -a /tmp/llm-cv-step3.log >&2) &
 CL_PID=$!
 
-log "Waiting for Step 2 (PID $RESUME_PID) and Step 3 (PID $CL_PID) API calls..."
+log "Waiting for Step 2 (PID $RESUME_PID) and Step 3 (PID $CL_PID) harness calls..."
 
 # Wait for both — use set +e so one failure doesn't kill the other
 set +e
@@ -468,12 +468,12 @@ CL_EXIT=$?
 set -e
 
 if [[ $RESUME_EXIT -ne 0 ]]; then
-    warn "Step 2 API call failed (exit $RESUME_EXIT). Log: /tmp/llm-cv-step2.log"
+    warn "Step 2 harness call failed (exit $RESUME_EXIT). Log: /tmp/llm-cv-step2.log"
     tail -20 /tmp/llm-cv-step2.log 2>/dev/null
 fi
 
 if [[ $CL_EXIT -ne 0 ]]; then
-    warn "Step 3 API call failed (exit $CL_EXIT). Log: /tmp/llm-cv-step3.log"
+    warn "Step 3 harness call failed (exit $CL_EXIT). Log: /tmp/llm-cv-step3.log"
     tail -20 /tmp/llm-cv-step3.log 2>/dev/null
 fi
 

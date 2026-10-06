@@ -96,9 +96,9 @@ cd /home/sagar/Skills/llm-cv && ./run_pipeline.sh \
 - `--user-skills "..."` — skills to add (only if Selective)
 - `--score-boost yes` — always on (only increases quality)
 
-Stage 2 runs to completion: Steps 2+3 (parallel API calls), compilation, fix loops, Obsidian sync. It prints the summary block at the end. Do NOT intercept, monitor via `hub`, or replicate its logic. Just launch it via `bash` and wait for the output.
+Stage 2 runs to completion: Steps 2+3 (parallel harness calls), compilation, fix loops, Obsidian sync. It prints the summary block at the end. Do NOT intercept, monitor via `hub`, or replicate its logic. Just launch it via `bash` and wait for the output.
 
-**Why this matters:** Direct API calls (3 calls, ~$0.01, ~1-2 min) vs old OMP sessions (63 calls, ~$0.07, ~25 min). The wrapper handles everything — just launch and wait.
+**Why this matters:** The wrapper handles generation and compilation with 3 isolated harness calls (+ optional fix calls). It uses OMP's configured default model and authentication without a pipeline model override. Just launch and wait.
 
 **Exception — "llm-cv refresh":** When the user says "llm-cv refresh" (no JD), do NOT launch the wrapper. Follow the Self-Refresh section at the bottom of this file.
 
@@ -121,10 +121,10 @@ Stage 2 runs to completion: Steps 2+3 (parallel API calls), compilation, fix loo
 
 ## Pipeline Overview
 
-Step 1: ATS analysis + JD archival + project ranking (direct API call, reads condensed catalog) → `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md`
+Step 1: ATS analysis + JD archival + project ranking (harness call, reads condensed catalog) → `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md`
 [bash] Compile Step 1 PDFs + extract selected projects → `selected_projects.yaml`
-Step 2: Resume writer + ATS rescoring (direct API call, reads `selected_projects.yaml`) → `Resume.yaml`
-Step 3: Cover letter writer (direct API call, parallel with Step 2) → `Cover_Letter.yaml`
+Step 2: Resume writer + ATS rescoring (harness call, reads `selected_projects.yaml`) → `Resume.yaml`
+Step 3: Cover letter writer (harness call, parallel with Step 2) → `Cover_Letter.yaml`
 [bash] Compile all PDFs + fix loop + obsidian sync
 Post-Step-1: Duplicate Application Check (wrapper mode) → searches Obsidian vault + Applications tree for prior applications to same company + role; prompts user to proceed, abort, or reuse prior resume
 Post: Obsidian sync + sort → moves folder to `/home/sagar/Applications/YYYY/MM/DD/[Company] — [Role]/`
@@ -222,20 +222,20 @@ In agentic IDEs (Devin, Claude Code, Oh My Pi, etc.), emitting lengthy planning 
 
 These rules apply to ALL pipeline steps (0, 1, 2, 3) and all post-pipeline actions.
 
-## Direct API Architecture (DEFAULT — always use the wrapper)
+## Harness Architecture (DEFAULT — always use the wrapper)
 
-The pipeline runs via `run_pipeline.sh` — 3 direct OpenRouter API calls via `api_pipeline.py`. No OMP sessions, no subagent spawning. Python reads input files, builds one prompt per step, calls the API, parses YAML from the response, writes output files. Bash handles all parallelism, compilation, and coordination.
+The pipeline runs via `run_pipeline.sh` — 3 isolated OMP harness calls via `api_pipeline.py`, using the configured default model and authentication. Python reads input files, builds one prompt per step, invokes `omp --print --mode json` without a model/provider override, parses YAML from the assistant response, and writes output files. Bash handles all parallelism, compilation, and coordination.
 
 1. Agent asks 4 First Action questions via `ask` (render, style, source, language). Keyword stuffing is NOT asked here.
-2. **Stage 1** (`run_pipeline.sh --stage 1`) → Step 1 API call (ATS analysis + JD archival + project ranking). Outputs APP_DIR, SKILL_GAPS, ATS_SCORE to stdout.
+2. **Stage 1** (`run_pipeline.sh --stage 1`) → Step 1 harness call (ATS analysis + JD archival + project ranking). Outputs APP_DIR, SKILL_GAPS, ATS_SCORE to stdout.
 3. Agent reads SKILL_GAPS, asks user about keyword stuffing via `ask` (No stuffing / Add all / Selective).
-4. **Stage 2** (`run_pipeline.sh --stage 2 --app-dir ... --stuffing ...`) → Steps 2+3 API calls (parallel), compilation, fix loops, Obsidian sync. Prints summary block.
+4. **Stage 2** (`run_pipeline.sh --stage 2 --app-dir ... --stuffing ...`) → Steps 2+3 harness calls (parallel), compilation, fix loops, Obsidian sync. Prints summary block.
 5. **Duplicate Application Check** — `check_duplicate_application.py` against Obsidian vault + Applications tree (inside stage 2)
-6. **Step 2** (`api_pipeline.py step2`) → Resume writer. API call reads selected_projects.yaml + ATS_Report + JD + base resume, outputs Resume.yaml + post_rewrite_ats_score. Does NOT compile PDFs.
-7. **Step 3** (`api_pipeline.py step3`, parallel with Step 2) → Cover letter writer. API call reads ATS_Report + JD + project_info, outputs Cover_Letter.yaml. Does NOT compile PDFs.
+6. **Step 2** (`api_pipeline.py step2`) → Resume writer. Harness call reads selected_projects.yaml + ATS_Report + JD + base resume, outputs Resume.yaml + post_rewrite_ats_score. Does NOT compile PDFs.
+7. **Step 3** (`api_pipeline.py step3`, parallel with Step 2) → Cover letter writer. Harness call reads ATS_Report + JD + project_info, outputs Cover_Letter.yaml. Does NOT compile PDFs.
 8. **[bash]** Waits for both steps. Compiles resume (tex → pdflatex ×2 → stamp → parseability → watermark). Compiles cover letter. Fix loop if parseability fails (calls `api_pipeline.py fix`). Recompiles ATS_Report.pdf. Obsidian sync + sort.
 
-Key design: bash launches Steps 2 and 3 in parallel using `&` and `wait`. 3 API calls total (+ optional fix calls). Model: qwen/qwen3.8-flash with reasoning disabled. Cost: ~$0.01/run. Time: ~1-2 min/run. The parent agent does TWO `bash` calls (stage 1 + stage 2) with one `ask` in between for stuffing.
+Key design: bash launches Steps 2 and 3 in parallel using `&` and `wait`. 3 harness calls total (+ optional fix calls). Model, authentication, and reasoning come from OMP; cost and latency depend on the selected provider. The parent agent does TWO `bash` calls (stage 1 + stage 2) with one `ask` in between for stuffing.
 
 **Single-session mode** (below) is for MANUAL DEBUGGING ONLY — when you need to inspect a specific step's output interactively. Do NOT use it for normal pipeline runs.
 
@@ -258,9 +258,9 @@ Key design: bash launches Steps 2 and 3 in parallel using `&` and `wait`. 3 API 
 
 Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories × 25pts = 100; formatting is non-scored `formatting_quality` verdict), finds closest candidate city, ranks top 6 projects. Score is informational — never blocks: `PROCEED` if ≥85, else `REVIEW` (Step 2 always proceeds).
 
-**Wrapper mode:** `api_pipeline.py step1` reads `okf/project_catalog_condensed.yaml` (21KB, no bullets) + base resume, calls OpenRouter API, writes ATS_Report.yaml, Job_Description.yaml, and project_info.md.
+**Wrapper mode:** `api_pipeline.py step1` reads `okf/project_catalog_condensed.yaml` (21KB, no bullets) + base resume, calls the OMP harness default model, writes ATS_Report.yaml, Job_Description.yaml, and project_info.md.
 
-**Compilation:** `run_pipeline.sh` compiles `ATS_Report.pdf` and `Job_Description.pdf` after Step 1 completes. No PDFs compiled by the API call.
+**Compilation:** `run_pipeline.sh` compiles `ATS_Report.pdf` and `Job_Description.pdf` after Step 1 completes. No PDFs compiled by the harness call.
 
 **Output:** `ATS_Report.yaml`, `Job_Description.yaml`, `project_info.md` in `[Company Name] — [Job Role]/` folder. PDFs compiled by bash.
 
@@ -270,7 +270,7 @@ Read `01_ats_and_jd_archival.md`. Parses JD, scores base resume (4 categories ×
 
 Read `02_resume_and_visual_audit.md` for full instructions. Rewrites resume from ATS blueprint + project list. Post-rewrite ATS rescoring, parse-integrity audit (`resume_parseability.py`).
 
-**Wrapper mode:** `api_pipeline.py step2` reads `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB) + ATS_Report + JD + base resume, calls OpenRouter API, writes `Resume.yaml` and appends `post_rewrite_ats_score` to `ATS_Report.yaml`. No compilation.
+**Wrapper mode:** `api_pipeline.py step2` reads `selected_projects.yaml` (full bullets for only the 6 ranked projects, ~7KB) + ATS_Report + JD + base resume, calls the OMP harness default model, writes `Resume.yaml` and appends `post_rewrite_ats_score` to `ATS_Report.yaml`. No compilation.
 
 **Compilation:** `run_pipeline.sh` compiles the resume (tex → pdflatex ×2 → stamp_photo → parseability → watermark) after Step 2 completes. If parseability fails, bash calls `api_pipeline.py fix` with the error. Cover letter runs in parallel (Step 3), also compiled by bash.
 
