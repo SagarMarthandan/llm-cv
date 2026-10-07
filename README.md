@@ -104,6 +104,8 @@ Firecrawl backup orchestration lives in the agent launcher because it is an MCP 
 
 `api_pipeline.py` invokes `omp --print --mode json` once per step, without `--model` or `--provider`. Each invocation is ephemeral, with tools, extensions, skills, and rules disabled. Prompts use unique temporary files; Python extracts the final assistant text from JSON events and writes the application YAML. Bash handles parallelism, compilation, and coordination. The progress bar reports elapsed time; stderr reports the actual provider/model used. `LLM_CV_API_TIMEOUT` remains the per-call timeout in seconds (default 300). `LLM_CV_MODEL` and `OPENROUTER_API_KEY` no longer select the pipeline model or its credentials.
 
+The child process reads stdin from `/dev/null`: the prompt is already supplied as a file, so it must not wait for EOF on the launcher's input pipe. The elapsed-time bar covers the entire request (startup and model response), not just default-model detection.
+
 ### Shared System Prompt
 
 A 10.5K-token `SYSTEM_PROMPT` is loaded once at module import via `_load_system_prompt()`. It contains:

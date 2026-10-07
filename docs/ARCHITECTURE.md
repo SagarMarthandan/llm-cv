@@ -138,6 +138,8 @@ SYSTEM_PROMPT = _load_system_prompt()
 
 `call_harness()` launches `omp --print --mode json` without `--model` or `--provider`. Each call uses a unique temporary workspace and prompt file, disables session persistence, tools, extensions, skills, and rules, and extracts text from the final assistant `message_end` event. Errors, aborted/truncated responses, and missing text fail the step. The actual provider/model is logged to stderr.
 
+The subprocess uses `stdin=subprocess.DEVNULL` because its prompt is supplied through `@prompt.txt`. Inheriting an open non-TTY stdin otherwise makes OMP wait in `readPipedInput` before model selection. The elapsed-time bar measures the complete invocation, including model generation.
+
 OMP manages authentication, reasoning, token limits, and caching. Costs and cache hit rates from the former Qwen/OpenRouter backend are not guarantees for the configured harness model. `LLM_CV_API_TIMEOUT` remains the call deadline in seconds (default 300); `LLM_CV_MODEL` is no longer used.
 
 ### Variable user message

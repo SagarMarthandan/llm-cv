@@ -8,6 +8,7 @@
 ### Fixed
 
 - Removed stale CLI `--model` defaults referencing the deleted `DEFAULT_MODEL`, which prevented all `api_pipeline.py` subcommands from starting after the harness-model cutover.
+- Harness subprocesses now close stdin via `subprocess.DEVNULL`. Prompts already come from temporary files; inheriting an open launcher pipe could block OMP's `readPipedInput` phase before default-model selection.
 
 ## v4.2.0 — 2026-09-09
 

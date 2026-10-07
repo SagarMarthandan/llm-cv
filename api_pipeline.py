@@ -294,6 +294,8 @@ def call_harness(prompt: str, system: str = None, progress_pos: int = 0) -> str:
                     "--no-title", "--system-prompt", system, f"@{prompt_path}",
                 ],
                 cwd=workspace,
+                # The prompt is file-backed; inherited pipes can block OMP on EOF.
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 timeout=API_TIMEOUT,
